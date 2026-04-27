@@ -151,6 +151,9 @@
   "title": "Портфельные ограничения",
   "type": "block",
   "dynamic": false,
+  "restrictions": {
+    "required": true
+  }
   "components": [
     {
       "title": "Лимит: аналитики",
