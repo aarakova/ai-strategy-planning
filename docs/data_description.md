@@ -4,7 +4,6 @@
 {
   "title": "Название мультипроекта",
   "type": "string",
-  "default": "",
   "restrictions": {
     "required": true
   }
@@ -20,7 +19,6 @@
 {
   "title": "Горизонт планирования",
   ??? "type": "date",
-  "default": "",
   "restrictions": {
     "required": true
   }
