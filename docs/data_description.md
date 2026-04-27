@@ -18,7 +18,7 @@
 ```
 {
   "title": "Горизонт планирования",
-  ??? "type": "date",
+  "type": "date",
   "restrictions": {
     "required": true
   }
