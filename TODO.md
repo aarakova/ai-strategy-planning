@@ -2,6 +2,6 @@
 
 
 - [ ] Заполнить dictionary
-- [ ] Заполнить tech stack
-- [ ] Заполнить vision
+- [x] Заполнить tech stack
+- [x] Заполнить vision
 
