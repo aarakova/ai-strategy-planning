@@ -1,0 +1,466 @@
+@startuml MongoDB ER Schema
+
+skinparam class {
+  BackgroundColor<<Collection>>    #AED6F1
+  BorderColor<<Collection>>        #1A5276
+  FontStyle<<Collection>>          Bold
+  FontSize<<Collection>>           12
+
+  BackgroundColor<<Embedded>>      #D5F5E3
+  BorderColor<<Embedded>>          #1E8449
+  FontSize<<Embedded>>             11
+
+  BackgroundColor<<EmbeddedArray>> #FDEBD0
+  BorderColor<<EmbeddedArray>>     #A04000
+  FontSize<<EmbeddedArray>>        11
+}
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor     #B2BEC3
+  FontStyle       Bold
+  FontSize        13
+}
+
+skinparam arrow {
+  FontSize  10
+}
+
+legend top right
+  |= Тип |= Описание |
+  |<#AED6F1> Collection   | Коллекция MongoDB |
+  |<#D5F5E3> Embedded     | Вложенный документ (объект) |
+  |<#FDEBD0> EmbeddedArray| Вложенный документ (массив) |
+  |<#E8DAEF> User         | Коллекция пользователей |
+  | ——      | Вложенность (composition) |
+  | - - >   | Ссылка по ObjectId |
+endlegend
+
+' ═══════════════════════════════════════════════════════
+package "Аутентификация" #F5EEF8 {
+' ═══════════════════════════════════════════════════════
+
+  class "users" <<Collection>> #E8DAEF {
+    _id          : ObjectId  <<PK>>
+    email        : String    <<unique>>
+    passwordHash : String
+    name         : String
+    createdAt    : Date
+    updatedAt    : Date
+  }
+}
+
+' ═══════════════════════════════════════════════════════
+package "Контекст планирования" #FFF9E6 {
+' ═══════════════════════════════════════════════════════
+
+  class "planning_contexts" <<Collection>> {
+    _id       : ObjectId  <<PK>>
+    userId    : ObjectId  <<FK>>
+    status    : "draft" | "submitted"
+    createdAt : Date
+    updatedAt : Date
+    ..embedded..
+    planningData         : PlanningData
+    portfolioConstraints : PortfolioConstraints
+  }
+
+  class "PlanningData" <<Embedded>> {
+    portfolioName   : String
+    planningHorizon : Date
+  }
+
+  class "PortfolioConstraints" <<Embedded>> {
+    analystsLimit    : Int ≥ 0
+    developersLimit  : Int ≥ 0
+    testersLimit     : Int ≥ 0
+    criticalDeadline : Date
+  }
+
+  class "strategic_orientations" <<Collection>> {
+    _id       : ObjectId  <<PK>>
+    contextId : ObjectId  <<FK>>
+    vision    : String
+    priority  : "HIGH" | "MEDIUM" | "LOW"
+    createdAt : Date
+  }
+
+  class "projects" <<Collection>> {
+    _id          : ObjectId  <<PK>>
+    contextId    : ObjectId  <<FK>>
+    name         : String
+    status       : "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED"
+    startDate    : Date
+    endDate      : Date
+    constraints  : String
+    deviations   : String
+    description  : String
+    createdAt    : Date
+    updatedAt    : Date
+    ..embedded..
+    workload : Workload
+  }
+
+  class "Workload" <<Embedded>> {
+    analysts   : Int > 0
+    developers : Int > 0
+    testers    : Int > 0
+  }
+
+  class "project_dependencies" <<Collection>> {
+    _id                : ObjectId  <<PK>>
+    contextId          : ObjectId  <<FK>>
+    mainProjectId      : ObjectId  <<FK>>
+    dependentProjectId : ObjectId  <<FK>>
+    description        : String
+    createdAt          : Date
+  }
+
+  "planning_contexts" *-down- "PlanningData"
+  "planning_contexts" *-down- "PortfolioConstraints"
+  "projects"          *-down- "Workload"
+}
+
+' ═══════════════════════════════════════════════════════
+package "Анализ портфеля" #E8F4FD {
+' ═══════════════════════════════════════════════════════
+
+  class "analysis_results" <<Collection>> {
+    _id               : ObjectId  <<PK>>
+    contextId         : ObjectId  <<FK>>
+    status            : "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
+    analysisTimestamp : Date
+    createdAt         : Date
+    updatedAt         : Date
+    ..embedded..
+    dependencyGraph  : DependencyGraph
+    timelineAnalysis : TimelineAnalysis
+    aiExplanation    : AIExplanation
+  }
+
+  class "DependencyGraph" <<Embedded>> {
+    nodes : [{id, name, status}]
+    edges : [{source, target}]
+  }
+
+  class "TimelineAnalysis" <<Embedded>> {
+    summary           : [String]
+    attentionProjects : [{projectId, name, reason}]
+    cascadeRisks      : [{sourceProject, affectedProject, reason}]
+  }
+
+  class "AIExplanation" <<Embedded>> {
+    summary : String
+  }
+
+  class "AnalysisRisk" <<EmbeddedArray>> {
+    _id     : ObjectId
+    risk    : String
+    impact  : "LOW" | "MEDIUM" | "HIGH"
+    source  : String
+    ..problem..
+    type          : String
+    mainProject   : String
+    dependentProjects : [String]
+    reason        : String
+    facts         : Object
+  }
+
+  class "ResourceLoad" <<EmbeddedArray>> {
+    role     : "ANALYSTS" | "DEVELOPERS" | "TESTERS"
+    required : Int
+    limit    : Int
+    delta    : Int
+  }
+
+  class "Deviation" <<EmbeddedArray>> {
+    _id                   : ObjectId
+    projectId             : ObjectId  <<FK>>
+    projectName           : String
+    deviation             : String
+    portfolioDanger       : "LOW" | "MEDIUM" | "HIGH"
+    dependencyPropagation : String
+  }
+
+  class "AIRecommendation" <<EmbeddedArray>> {
+    _id   : ObjectId
+    title : String
+    text  : String
+    basis : String
+  }
+
+  "analysis_results" *-- "DependencyGraph"
+  "analysis_results" *-- "TimelineAnalysis"
+  "analysis_results" *-- "AIExplanation"
+  "analysis_results" *-- "AnalysisRisk"     : analysisRisks[]
+  "analysis_results" *-- "ResourceLoad"     : resourceAnalysis[]
+  "analysis_results" *-- "Deviation"        : deviationAnalysis[]
+  "analysis_results" *-- "AIRecommendation" : aiRecommendations[]
+}
+
+' ═══════════════════════════════════════════════════════
+package "Стратегические цели" #FFFDE7 {
+' ═══════════════════════════════════════════════════════
+
+  class "strategic_goals" <<Collection>> {
+    _id                   : ObjectId  <<PK>>
+    contextId             : ObjectId  <<FK>>
+    specific              : String
+    kpiName               : String
+    kpiTargetValue        : Number
+    kpiUnit               : String
+    achievable            : String
+    timebound             : Date
+    priority              : "HIGH" | "MEDIUM" | "LOW"
+    relatedOrientationIds : [ObjectId]  <<FK>>
+    relatedProjectIds     : [ObjectId]  <<FK>>
+    context               : "AI_SUGGESTED" | "USER_CREATED"
+    aiExplanation         : String
+    createdAt             : Date
+    updatedAt             : Date
+    ..embedded..
+    projectCoverage : ProjectCoverage
+    realismCheck    : RealismCheck
+  }
+
+  class "ProjectCoverage" <<Embedded>> {
+    degree : "WEAK" | "MODERATE" | "STRONG"
+  }
+
+  class "RealismCheck" <<Embedded>> {
+    degree           : "LOW" | "MEDIUM" | "HIGH"
+    score            : Int [0..100]
+    hasFormulation   : Boolean
+    hasMeasurability : Boolean
+    hasValidKPI      : Boolean
+    hasAchievability : Boolean
+    hasDeadline      : Boolean
+    hasOrientations  : Boolean
+    hasProjects      : Boolean
+  }
+
+  class "ai_goal_suggestions" <<Collection>> {
+    _id            : ObjectId  <<PK>>
+    contextId      : ObjectId  <<FK>>
+    specific       : String
+    kpiName        : String
+    kpiTargetValue : Number
+    kpiUnit        : String
+    achievable     : String
+    timebound      : Date
+    priority       : "HIGH" | "MEDIUM" | "LOW"
+    aiExplanation  : String
+    status         : "PENDING" | "ADDED" | "REJECTED"
+    createdAt      : Date
+  }
+
+  class "goal_conflicts" <<Collection>> {
+    _id       : ObjectId  <<PK>>
+    contextId : ObjectId  <<FK>>
+    createdAt : Date
+  }
+
+  class "GoalConflict" <<EmbeddedArray>> {
+    _id             : ObjectId
+    category        : String
+    description     : String
+    involvedGoalIds : [ObjectId]  <<FK>>
+  }
+
+  class "goal_duplicates" <<Collection>> {
+    _id       : ObjectId  <<PK>>
+    contextId : ObjectId  <<FK>>
+    createdAt : Date
+  }
+
+  class "GoalDuplicate" <<EmbeddedArray>> {
+    _id              : ObjectId
+    category         : String
+    description      : String
+    duplicateGoalIds : [ObjectId]  <<FK>>
+  }
+
+  "strategic_goals" *-down- "ProjectCoverage"
+  "strategic_goals" *-down- "RealismCheck"
+  "goal_conflicts"  *--     "GoalConflict"  : conflicts[]
+  "goal_duplicates" *--     "GoalDuplicate" : duplicates[]
+}
+
+' ═══════════════════════════════════════════════════════
+package "Альтернативы" #FDEDEC {
+' ═══════════════════════════════════════════════════════
+
+  class "alternative_scenarios" <<Collection>> {
+    _id                 : ObjectId  <<PK>>
+    contextId           : ObjectId  <<FK>>
+    generationStatus    : "PENDING" | "IN_PROGRESS" | "COMPLETED" | "FAILED"
+    generationTimestamp : Date
+    createdAt           : Date
+    updatedAt           : Date
+    ..embedded..
+    comparisonMatrix : ComparisonMatrix
+  }
+
+  class "Scenario" <<EmbeddedArray>> {
+    _id                         : ObjectId
+    name                        : String
+    type                        : "BALANCED" | "CONSERVATIVE" | "RISKY"
+    description                 : String
+    status                      : "FEASIBLE" | "RECOMMENDED" | "REQUIRES_ATTENTION"
+    integralScore               : Int [0..100]
+    totalDurationMonths         : Int
+    riskCount                   : Int
+    constraintCompliancePercent : Int
+    strengths                   : [String]
+    weaknesses                  : [String]
+    aiInterpretation            : String
+    selectedForPlan             : Boolean
+    constraintsInAttention      : [String]
+  }
+
+  class "ScenarioResource" <<EmbeddedArray>> {
+    role     : "ANALYSTS" | "DEVELOPERS" | "TESTERS"
+    required : Int
+  }
+
+  class "ScenarioRisk" <<EmbeddedArray>> {
+    _id     : ObjectId
+    risk    : String
+    impact  : "LOW" | "MEDIUM" | "HIGH"
+    source  : String
+  }
+
+  class "ComparisonMatrix" <<Embedded>> {
+    scenarios : [{type, integralScore, riskCount,\nconstraintPercent, resourcePercent,\nduration, status}]
+  }
+
+  "alternative_scenarios" *-- "Scenario"           : scenarios[]
+  "Scenario"              *-- "ScenarioResource"   : resourceRequirements[]
+  "Scenario"              *-- "ScenarioRisk"        : scenarioRisks[]
+  "alternative_scenarios" *-- "ComparisonMatrix"
+}
+
+' ═══════════════════════════════════════════════════════
+package "Стратегический план" #F0F0F0 {
+' ═══════════════════════════════════════════════════════
+
+  class "strategic_plans" <<Collection>> {
+    _id                  : ObjectId  <<PK>>
+    contextId            : ObjectId  <<FK>>
+    alternativeId        : ObjectId  <<FK>>
+    selectedScenarioType : "BALANCED" | "CONSERVATIVE" | "RISKY"
+    constraintsInAttention : [String]
+    status               : "DRAFT" | "ACTIVE" | "COMPLETED"
+    createdAt            : Date
+    updatedAt            : Date
+    ..embedded..
+    planPassport         : PlanPassport
+  }
+
+  class "Stage" <<EmbeddedArray>> {
+    _id         : ObjectId
+    stageNumber : Int
+    name        : String
+    period      : String
+    startDate   : Date
+    endDate     : Date
+    stageStatus : "COMPLETED" | "IN_PROGRESS" | "PLANNED"
+  }
+
+  class "Checkpoint" <<Embedded>> {
+    name   : String
+    date   : Date
+    status : "ACHIEVED" | "PLANNED"
+  }
+
+  class "StageComposition" <<EmbeddedArray>> {
+    projectId   : ObjectId  <<FK>>
+    projectName : String
+    share       : Int [0..100]
+    role        : "ANALYSTS" | "DEVELOPERS" | "TESTERS"
+    roleShare   : Int
+  }
+
+  class "StageResource" <<EmbeddedArray>> {
+    role           : "ANALYSTS" | "DEVELOPERS" | "TESTERS"
+    required       : Int
+    available      : Int
+    loadingPercent : Int
+    loadingDegree  : "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  }
+
+  class "PlanRisk" <<EmbeddedArray>> {
+    _id     : ObjectId
+    risk    : String
+    impact  : "LOW" | "MEDIUM" | "HIGH"
+    source  : String
+  }
+
+  class "PlanPassport" <<Embedded>> {
+    selectedVariant             : String
+    planningHorizonMonths       : Int
+    checkpointCount             : Int
+    riskCount                   : Int
+    constraintsInAttentionCount : Int
+    executionProgress           : Int [0..100]
+  }
+
+  class "PlanningStageStatus" <<EmbeddedArray>> {
+    stageName : String
+    status    : "COMPLETED" | "IN_PROGRESS" | "NOT_STARTED"
+  }
+
+  "strategic_plans" *-- "Stage"                : planStages[]
+  "Stage"           *-- "Checkpoint"           : checkpoint
+  "Stage"           *-- "StageComposition"     : stageComposition[]
+  "Stage"           *-- "StageResource"        : stageResources[]
+  "strategic_plans" *-- "PlanRisk"             : planRisks[]
+  "strategic_plans" *-- "PlanPassport"
+  "strategic_plans" *-- "PlanningStageStatus"  : planningStagesStatus[]
+}
+
+' ═══════════════════════════════════════════════════════
+package "События" #F8F9FA {
+' ═══════════════════════════════════════════════════════
+
+  class "domain_events" <<Collection>> {
+    _id       : ObjectId  <<PK>>
+    eventType : "ContextFormed" | "AnalysisCompleted" |\n"GoalSaved" | "GoalsConfirmed" |\n"ScenarioSelected" | "StageUpdated"
+    contextId : ObjectId  <<FK>>
+    sourceBC  : String
+    payload   : Object
+    createdAt : Date
+  }
+}
+
+' ═══════════════════════════════════════════════════════
+' Межколлекционные ссылки (ObjectId FK)
+' ═══════════════════════════════════════════════════════
+
+"users"                 <..  "planning_contexts"        : userId
+
+"planning_contexts"     <..  "strategic_orientations"  : contextId
+"planning_contexts"     <..  "projects"                : contextId
+"planning_contexts"     <..  "project_dependencies"    : contextId
+"planning_contexts"     <..  "analysis_results"        : contextId
+"planning_contexts"     <..  "strategic_goals"         : contextId
+"planning_contexts"     <..  "ai_goal_suggestions"     : contextId
+"planning_contexts"     <..  "goal_conflicts"          : contextId
+"planning_contexts"     <..  "goal_duplicates"         : contextId
+"planning_contexts"     <..  "alternative_scenarios"   : contextId
+"planning_contexts"     <..  "strategic_plans"         : contextId
+"planning_contexts"     <..  "domain_events"           : contextId
+
+"projects"              <..  "project_dependencies"    : mainProjectId
+"projects"              <..  "project_dependencies"    : dependentProjectId
+
+"strategic_orientations" <.. "strategic_goals"         : relatedOrientationIds[]
+"projects"              <..  "strategic_goals"         : relatedProjectIds[]
+
+"strategic_goals"       <..  "GoalConflict"            : involvedGoalIds[]
+"strategic_goals"       <..  "GoalDuplicate"           : duplicateGoalIds[]
+
+"alternative_scenarios" <..  "strategic_plans"         : alternativeId
+"projects"              <..  "StageComposition"        : projectId
+
+@enduml

@@ -1,0 +1,1676 @@
+openapi: 3.0.3
+
+info:
+  title: AI Strategy Planning API
+  description: REST API для системы автоматизации стратегического планирования мультипроекта
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Аутентификация пользователей
+  - name: Contexts
+    description: Управление контекстами планирования (мультипроект)
+  - name: Orientations
+    description: Стратегические ориентиры
+  - name: Projects
+    description: Реестр проектов
+  - name: Dependencies
+    description: Зависимости между проектами
+  - name: Analysis
+    description: Анализ портфеля
+  - name: Goals
+    description: Стратегические цели
+  - name: Alternatives
+    description: Альтернативные сценарии
+  - name: Plan
+    description: Стратегический план
+
+# ─────────────────────────────────────────────────────────
+# SECURITY
+# ─────────────────────────────────────────────────────────
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  # ───────────────────────────────────────────────────────
+  # SCHEMAS
+  # ───────────────────────────────────────────────────────
+  schemas:
+
+    # ── Common ──────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: Контекст не найден
+
+    # ── Auth ────────────────────────────────────────────
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: secret123
+        name:
+          type: string
+          example: Иван Иванов
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          example: bearer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6642a1f0e3b4c10001a2b3c4
+        email:
+          type: string
+          example: user@example.com
+        name:
+          type: string
+          example: Иван Иванов
+
+    # ── Planning Context ─────────────────────────────────
+    PlanningDataRequest:
+      type: object
+      required: [portfolio_name, planning_horizon]
+      properties:
+        portfolio_name:
+          type: string
+          example: Цифровая трансформация
+        planning_horizon:
+          type: string
+          format: date
+          example: "2026-12-31"
+
+    PortfolioConstraintsRequest:
+      type: object
+      required: [analysts_limit, developers_limit, testers_limit, critical_deadline]
+      properties:
+        analysts_limit:
+          type: integer
+          minimum: 0
+          example: 500
+        developers_limit:
+          type: integer
+          minimum: 0
+          example: 900
+        testers_limit:
+          type: integer
+          minimum: 0
+          example: 300
+        critical_deadline:
+          type: string
+          format: date
+          example: "2026-10-31"
+
+    ContextListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6642a1f0e3b4c10001a2b3c4
+        portfolio_name:
+          type: string
+          example: Цифровая трансформация
+        planning_horizon:
+          type: string
+          format: date
+          example: "2026-12-31"
+        status:
+          type: string
+          enum: [draft, submitted]
+        planning_stages_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanningStageStatus'
+        created_at:
+          type: string
+          format: date-time
+
+    PlanningStageStatus:
+      type: object
+      properties:
+        stage_name:
+          type: string
+          enum: [Контекст, Анализ, Цели, Альтернативы, План]
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+
+    # ── Orientations ─────────────────────────────────────
+    OrientationRequest:
+      type: object
+      required: [vision, priority]
+      properties:
+        vision:
+          type: string
+          example: Сделать цифровую трансформацию доступной для среднего бизнеса к 2027 году
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+
+    OrientationResponse:
+      allOf:
+        - $ref: '#/components/schemas/OrientationRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              example: 6642a1f0e3b4c10001a2b3c5
+
+    # ── Projects ─────────────────────────────────────────
+    WorkloadRequest:
+      type: object
+      required: [analysts, developers, testers]
+      properties:
+        analysts:
+          type: integer
+          minimum: 1
+          example: 120
+        developers:
+          type: integer
+          minimum: 1
+          example: 300
+        testers:
+          type: integer
+          minimum: 1
+          example: 80
+
+    ProjectRequest:
+      type: object
+      required: [name, status, start_date, end_date, workload]
+      properties:
+        name:
+          type: string
+          example: Модуль авторизации
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+        start_date:
+          type: string
+          format: date
+          example: "2026-03-01"
+        end_date:
+          type: string
+          format: date
+          example: "2026-06-30"
+        workload:
+          $ref: '#/components/schemas/WorkloadRequest'
+        constraints:
+          type: string
+          example: Нельзя переносить релиз
+        deviations:
+          type: string
+          example: Отставание на 10 дней
+        description:
+          type: string
+          example: Разработка модуля авторизации пользователей
+
+    ProjectResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProjectRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+              example: 6642a1f0e3b4c10001a2b3c6
+
+    # ── Dependencies ─────────────────────────────────────
+    DependencyRequest:
+      type: object
+      required: [main_project_id, dependent_project_id]
+      properties:
+        main_project_id:
+          type: string
+          example: 6642a1f0e3b4c10001a2b3c6
+        dependent_project_id:
+          type: string
+          example: 6642a1f0e3b4c10001a2b3c7
+
+    DependencyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 6642a1f0e3b4c10001a2b3c8
+        main_project_id:
+          type: string
+        main_project_name:
+          type: string
+          example: Модуль авторизации
+        dependent_project_id:
+          type: string
+        dependent_project_name:
+          type: string
+          example: Платёжная система
+        description:
+          type: string
+          example: Проект "Платёжная система" зависит от "Модуль авторизации"
+
+    # ── Analysis ─────────────────────────────────────────
+    GraphNode:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+
+    GraphEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+
+    AnalysisRiskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        risk:
+          type: string
+          example: Риск задержки проекта B из-за отклонения проекта A
+        impact:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        source:
+          type: string
+          example: dependency_analysis
+
+    ResourceLoadResponse:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [ANALYSTS, DEVELOPERS, TESTERS]
+        required:
+          type: integer
+          example: 1200
+        limit:
+          type: integer
+          example: 900
+        delta:
+          type: integer
+          description: "Отрицательное — дефицит, положительное — профицит"
+          example: -300
+
+    DeviationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        project_name:
+          type: string
+        deviation:
+          type: string
+          example: Сильное отставание по разработке
+        portfolio_danger:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        dependency_propagation:
+          type: string
+          example: Влияние на проект C возможно при росте отклонения
+
+    AttentionProject:
+      type: object
+      properties:
+        project_id:
+          type: string
+        project_name:
+          type: string
+        reason:
+          type: string
+
+    CascadeRisk:
+      type: object
+      properties:
+        source_project:
+          type: string
+        affected_project:
+          type: string
+        reason:
+          type: string
+
+    AIRecommendationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          example: Перераспределить ресурсы разработчиков
+        text:
+          type: string
+          example: Следует пересмотреть распределение разработчиков между проектами P2 и P3
+        basis:
+          type: string
+          example: "resourceAnalysis: Разработчики, delta = -200"
+
+    AnalysisResultResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        context_id:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
+        analysis_timestamp:
+          type: string
+          format: date-time
+        dependency_graph:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                $ref: '#/components/schemas/GraphNode'
+            edges:
+              type: array
+              items:
+                $ref: '#/components/schemas/GraphEdge'
+        analysis_risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalysisRiskResponse'
+        timeline_analysis:
+          type: object
+          properties:
+            summary:
+              type: array
+              items:
+                type: string
+              example:
+                - Горизонт планирования покрывает портфель частично
+                - Наибольшее влияние создаёт цепочка A→B→C
+            attention_projects:
+              type: array
+              items:
+                $ref: '#/components/schemas/AttentionProject'
+            cascade_risks:
+              type: array
+              items:
+                $ref: '#/components/schemas/CascadeRisk'
+        resource_analysis:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceLoadResponse'
+        deviation_analysis:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviationResponse'
+        ai_explanation:
+          type: object
+          properties:
+            summary:
+              type: string
+        ai_recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIRecommendationResponse'
+
+    # ── Goals ────────────────────────────────────────────
+    GoalRequest:
+      type: object
+      required: [specific, kpi_name, kpi_target_value, kpi_unit, achievable, timebound, priority]
+      properties:
+        specific:
+          type: string
+          example: Увеличить долю цифровых продаж до 60%
+        kpi_name:
+          type: string
+          example: Доля цифровых продаж
+        kpi_target_value:
+          type: number
+          example: 60
+        kpi_unit:
+          type: string
+          example: "%"
+        achievable:
+          type: string
+          example: За счёт внедрения новых каналов продаж и автоматизации
+        timebound:
+          type: string
+          format: date
+          example: "2027-01-01"
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        related_orientation_ids:
+          type: array
+          items:
+            type: string
+        related_project_ids:
+          type: array
+          items:
+            type: string
+
+    RealismCheck:
+      type: object
+      properties:
+        degree:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        has_formulation:
+          type: boolean
+        has_measurability:
+          type: boolean
+        has_valid_kpi:
+          type: boolean
+        has_achievability:
+          type: boolean
+        has_deadline:
+          type: boolean
+        has_orientations:
+          type: boolean
+        has_projects:
+          type: boolean
+
+    GoalResponse:
+      allOf:
+        - $ref: '#/components/schemas/GoalRequest'
+        - type: object
+          properties:
+            id:
+              type: string
+            context:
+              type: string
+              enum: [USER_CREATED, AI_SUGGESTED]
+            ai_explanation:
+              type: string
+            project_coverage:
+              type: object
+              properties:
+                degree:
+                  type: string
+                  enum: [WEAK, MODERATE, STRONG]
+            realism_check:
+              $ref: '#/components/schemas/RealismCheck'
+            created_at:
+              type: string
+              format: date-time
+
+    GoalSuggestionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        specific:
+          type: string
+        kpi_name:
+          type: string
+        kpi_target_value:
+          type: number
+        kpi_unit:
+          type: string
+        achievable:
+          type: string
+        timebound:
+          type: string
+          format: date
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+        ai_explanation:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ADDED, REJECTED]
+
+    GoalConflictResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          example: Конфликт приоритетов
+        description:
+          type: string
+        involved_goal_ids:
+          type: array
+          items:
+            type: string
+
+    GoalDuplicateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+          example: Дубль KPI
+        description:
+          type: string
+        duplicate_goal_ids:
+          type: array
+          items:
+            type: string
+
+    # ── Alternatives ─────────────────────────────────────
+    ScenarioRiskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        risk:
+          type: string
+        impact:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        source:
+          type: string
+
+    ScenarioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Сбалансированный вариант
+        type:
+          type: string
+          enum: [BALANCED, CONSERVATIVE, RISKY]
+        description:
+          type: string
+        status:
+          type: string
+          enum: [FEASIBLE, RECOMMENDED, REQUIRES_ATTENTION]
+        integral_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        total_duration_months:
+          type: integer
+        risk_count:
+          type: integer
+        constraint_compliance_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        strengths:
+          type: array
+          items:
+            type: string
+        weaknesses:
+          type: array
+          items:
+            type: string
+        ai_interpretation:
+          type: string
+        selected_for_plan:
+          type: boolean
+        resource_requirements:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [ANALYSTS, DEVELOPERS, TESTERS]
+              required:
+                type: integer
+        scenario_risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenarioRiskResponse'
+        constraints_in_attention:
+          type: array
+          items:
+            type: string
+
+    ComparisonMatrixRow:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [BALANCED, CONSERVATIVE, RISKY]
+        integral_score:
+          type: integer
+        risk_count:
+          type: integer
+        constraint_compliance_percent:
+          type: integer
+        resource_feasibility_percent:
+          type: integer
+        total_duration_months:
+          type: integer
+        status:
+          type: string
+          enum: [FEASIBLE, RECOMMENDED, REQUIRES_ATTENTION]
+
+    AlternativesResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        context_id:
+          type: string
+        generation_status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
+        scenarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenarioResponse'
+        comparison_matrix:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparisonMatrixRow'
+
+    # ── Plan ─────────────────────────────────────────────
+    PlanRiskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        risk:
+          type: string
+        impact:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        source:
+          type: string
+
+    StageCompositionItem:
+      type: object
+      properties:
+        project_id:
+          type: string
+        project_name:
+          type: string
+        share:
+          type: integer
+          minimum: 0
+          maximum: 100
+        role:
+          type: string
+          enum: [ANALYSTS, DEVELOPERS, TESTERS]
+        role_share:
+          type: integer
+
+    StageResourceItem:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [ANALYSTS, DEVELOPERS, TESTERS]
+        required:
+          type: integer
+        available:
+          type: integer
+        loading_percent:
+          type: integer
+        loading_degree:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    CheckpointResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Запуск MVP
+        date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [ACHIEVED, PLANNED]
+
+    StageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        stage_number:
+          type: integer
+        name:
+          type: string
+          example: Запуск ключевых инициатив
+        period:
+          type: string
+          example: Май 2026 — Июль 2026
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        stage_status:
+          type: string
+          enum: [PLANNED, IN_PROGRESS, COMPLETED]
+        checkpoint:
+          $ref: '#/components/schemas/CheckpointResponse'
+        stage_composition:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageCompositionItem'
+        stage_resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageResourceItem'
+
+    StageUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        period:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        stage_status:
+          type: string
+          enum: [PLANNED, IN_PROGRESS, COMPLETED]
+        checkpoint:
+          type: object
+          properties:
+            name:
+              type: string
+            date:
+              type: string
+              format: date
+            status:
+              type: string
+              enum: [ACHIEVED, PLANNED]
+        stage_composition:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageCompositionItem'
+
+    PlanPassport:
+      type: object
+      properties:
+        selected_variant:
+          type: string
+          example: Сбалансированный вариант
+        planning_horizon_months:
+          type: integer
+        checkpoint_count:
+          type: integer
+        risk_count:
+          type: integer
+        constraints_in_attention_count:
+          type: integer
+        execution_progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    PlanResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        context_id:
+          type: string
+        selected_scenario_type:
+          type: string
+          enum: [BALANCED, CONSERVATIVE, RISKY]
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, COMPLETED]
+        plan_passport:
+          $ref: '#/components/schemas/PlanPassport'
+        plan_stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/StageResponse'
+        plan_risks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanRiskResponse'
+        constraints_in_attention:
+          type: array
+          items:
+            type: string
+        planning_stages_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanningStageStatus'
+
+# ─────────────────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────────────────
+paths:
+
+  # ── AUTH ────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Регистрация нового пользователя
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Пользователь с таким email уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Вход в систему
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Данные текущего пользователя
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── CONTEXTS ────────────────────────────────────────────
+  /contexts:
+    get:
+      tags: [Contexts]
+      summary: Список мультипроектов текущего пользователя
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContextListItem'
+
+    post:
+      tags: [Contexts]
+      summary: Создать новый мультипроект
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanningDataRequest'
+      responses:
+        '201':
+          description: Контекст создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextListItem'
+
+  /contexts/{contextId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Contexts]
+      summary: Получить контекст с данными планирования
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContextListItem'
+        '404':
+          description: Контекст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Contexts]
+      summary: Удалить мультипроект со всеми связанными данными
+      responses:
+        '204':
+          description: Удалён
+        '404':
+          description: Не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /contexts/{contextId}/planning-data:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Contexts]
+      summary: Обновить данные планирования (название, горизонт)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanningDataRequest'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanningDataRequest'
+
+  /contexts/{contextId}/portfolio-constraints:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Contexts]
+      summary: Обновить портфельные ограничения
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortfolioConstraintsRequest'
+      responses:
+        '200':
+          description: Обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioConstraintsRequest'
+
+  /contexts/{contextId}/submit:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Contexts]
+      summary: Сформировать контекст (запускает анализ портфеля)
+      responses:
+        '202':
+          description: Контекст принят, анализ запущен
+        '422':
+          description: Данные контекста невалидны для запуска анализа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── ORIENTATIONS ────────────────────────────────────────
+  /contexts/{contextId}/orientations:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Orientations]
+      summary: Список стратегических ориентиров
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrientationResponse'
+
+    post:
+      tags: [Orientations]
+      summary: Добавить ориентир
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrientationRequest'
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrientationResponse'
+
+  /contexts/{contextId}/orientations/{orientationId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: orientationId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    put:
+      tags: [Orientations]
+      summary: Обновить ориентир
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrientationRequest'
+      responses:
+        '200':
+          description: Обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrientationResponse'
+
+    delete:
+      tags: [Orientations]
+      summary: Удалить ориентир
+      responses:
+        '204':
+          description: Удалён
+
+  # ── PROJECTS ────────────────────────────────────────────
+  /contexts/{contextId}/projects:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Projects]
+      summary: Реестр проектов
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectResponse'
+
+    post:
+      tags: [Projects]
+      summary: Добавить проект
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRequest'
+      responses:
+        '201':
+          description: Создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+
+  /contexts/{contextId}/projects/{projectId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: projectId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    put:
+      tags: [Projects]
+      summary: Обновить проект
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRequest'
+      responses:
+        '200':
+          description: Обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+
+    delete:
+      tags: [Projects]
+      summary: Удалить проект
+      responses:
+        '204':
+          description: Удалён
+
+  # ── DEPENDENCIES ────────────────────────────────────────
+  /contexts/{contextId}/dependencies:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Dependencies]
+      summary: Список зависимостей между проектами
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DependencyResponse'
+
+    post:
+      tags: [Dependencies]
+      summary: Добавить зависимость
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DependencyRequest'
+      responses:
+        '201':
+          description: Создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DependencyResponse'
+        '409':
+          description: Зависимость создаёт цикл
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /contexts/{contextId}/dependencies/{dependencyId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: dependencyId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    delete:
+      tags: [Dependencies]
+      summary: Удалить зависимость
+      responses:
+        '204':
+          description: Удалена
+
+  # ── ANALYSIS ────────────────────────────────────────────
+  /contexts/{contextId}/analysis:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Analysis]
+      summary: Результаты анализа портфеля
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResultResponse'
+        '404':
+          description: Анализ ещё не сформирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Analysis]
+      summary: Перезапустить анализ
+      responses:
+        '202':
+          description: Анализ запущен
+
+  # ── GOALS ───────────────────────────────────────────────
+  /contexts/{contextId}/goals:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Goals]
+      summary: Список стратегических целей
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalResponse'
+
+    post:
+      tags: [Goals]
+      summary: Создать стратегическую цель
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalRequest'
+      responses:
+        '201':
+          description: Создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+  /contexts/{contextId}/goals/{goalId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: goalId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    put:
+      tags: [Goals]
+      summary: Обновить цель
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoalRequest'
+      responses:
+        '200':
+          description: Обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+    delete:
+      tags: [Goals]
+      summary: Удалить цель
+      responses:
+        '204':
+          description: Удалена
+
+  /contexts/{contextId}/goals/suggestions:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Goals]
+      summary: Список целей, предложенных ИИ
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalSuggestionResponse'
+
+    post:
+      tags: [Goals]
+      summary: Запросить предложения целей от ИИ
+      responses:
+        '202':
+          description: Запрос принят, ИИ формирует предложения
+
+  /contexts/{contextId}/goals/suggestions/{suggestionId}/accept:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: suggestionId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    post:
+      tags: [Goals]
+      summary: Добавить предложенную ИИ цель в список целей
+      responses:
+        '201':
+          description: Цель добавлена в список
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+  /contexts/{contextId}/goals/suggestions/{suggestionId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: suggestionId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    delete:
+      tags: [Goals]
+      summary: Отклонить предложение ИИ
+      responses:
+        '204':
+          description: Отклонено
+
+  /contexts/{contextId}/goals/conflicts:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Goals]
+      summary: Конфликты между стратегическими целями
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalConflictResponse'
+
+  /contexts/{contextId}/goals/duplicates:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Goals]
+      summary: Дублирования между стратегическими целями
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalDuplicateResponse'
+
+  # ── ALTERNATIVES ────────────────────────────────────────
+  /contexts/{contextId}/alternatives:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Alternatives]
+      summary: Альтернативные сценарии и матрица сравнения
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlternativesResponse'
+        '404':
+          description: Альтернативы ещё не сформированы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Alternatives]
+      summary: Сгенерировать альтернативные сценарии
+      responses:
+        '202':
+          description: Генерация запущена
+
+  /contexts/{contextId}/alternatives/scenarios/{scenarioId}/select:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: scenarioId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    post:
+      tags: [Alternatives]
+      summary: Выбрать сценарий для построения плана
+      responses:
+        '200':
+          description: Сценарий выбран
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioResponse'
+
+    delete:
+      tags: [Alternatives]
+      summary: Снять выбор сценария
+      responses:
+        '200':
+          description: Выбор снят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScenarioResponse'
+
+  # ── PLAN ────────────────────────────────────────────────
+  /contexts/{contextId}/plan:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [Plan]
+      summary: Получить стратегический план
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+        '404':
+          description: План ещё не сформирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Plan]
+      summary: Сформировать план из выбранного сценария
+      responses:
+        '202':
+          description: Формирование плана запущено
+        '409':
+          description: Сценарий не выбран
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /contexts/{contextId}/plan/stages/{stageId}:
+    parameters:
+      - name: contextId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: stageId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    put:
+      tags: [Plan]
+      summary: Редактировать этап плана
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StageUpdateRequest'
+      responses:
+        '200':
+          description: Этап обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StageResponse'
