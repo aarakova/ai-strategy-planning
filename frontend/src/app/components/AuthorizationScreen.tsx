@@ -11,29 +11,58 @@ import {
   BarChart3,
 } from 'lucide-react';
 
-const initialUsers = [
+type ScreenName = 'Авторизация' | 'Главная';
+
+type User = {
+  login: string;
+  password: string;
+};
+
+type Multiproject = {
+  id: string;
+  name: string;
+  planningHorizon: string;
+  createdAt: string;
+};
+
+type AuthForm = {
+  login: string;
+  password: string;
+};
+
+type ProjectForm = {
+  name: string;
+  planningHorizon: string;
+};
+
+type AuthorizationScreenProps = {
+  setActiveScreen: (screen: ScreenName) => void;
+  setSelectedMultiproject: (multiproject: Multiproject) => void;
+};
+
+const initialUsers: User[] = [
   {
     login: 'admin',
     password: 'admin',
   },
 ];
 
-const initialMultiprojects = [
+const initialMultiprojects: Multiproject[] = [
   {
-    id: 1,
+    id: '1',
     name: 'Стратегическое развитие ИС',
     planningHorizon: '2026-07-31',
     createdAt: '2026-05-01',
   },
   {
-    id: 2,
+    id: '2',
     name: 'Автоматизация клиентских сервисов',
     planningHorizon: '2026-09-30',
     createdAt: '2026-05-04',
   },
 ];
 
-const formatDate = (date) => {
+const formatDate = (date: string) => {
   if (!date) return 'Не указано';
 
   return new Date(date).toLocaleDateString('ru-RU', {
@@ -46,30 +75,33 @@ const formatDate = (date) => {
 export function AuthorizationScreen({
   setActiveScreen,
   setSelectedMultiproject,
-}) {
-  const [step, setStep] = useState('auth');
+}: AuthorizationScreenProps) {
+  const [step, setStep] = useState<'auth' | 'multiproject'>('auth');
 
-  const [users, setUsers] = useState(initialUsers);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const [authForm, setAuthForm] = useState({
+  const [authForm, setAuthForm] = useState<AuthForm>({
     login: '',
     password: '',
   });
 
-  const [authError, setAuthError] = useState('');
+  const [authError, setAuthError] = useState<string>('');
 
-  const [multiprojects, setMultiprojects] = useState(initialMultiprojects);
-  const [selectedMultiprojectId, setSelectedMultiprojectId] = useState(null);
+  const [multiprojects, setMultiprojects] =
+    useState<Multiproject[]>(initialMultiprojects);
 
-  const [projectForm, setProjectForm] = useState({
+  const [selectedMultiprojectId, setSelectedMultiprojectId] =
+    useState<string | null>(null);
+
+  const [projectForm, setProjectForm] = useState<ProjectForm>({
     name: '',
     planningHorizon: '',
   });
 
-  const [projectError, setProjectError] = useState('');
+  const [projectError, setProjectError] = useState<string>('');
 
-  const handleAuthChange = (field, value) => {
+  const handleAuthChange = (field: keyof AuthForm, value: string) => {
     setAuthForm((prev) => ({
       ...prev,
       [field]: value,
@@ -126,7 +158,7 @@ export function AuthorizationScreen({
       return;
     }
 
-    const newUser = {
+    const newUser: User = {
       login,
       password,
     };
@@ -136,7 +168,10 @@ export function AuthorizationScreen({
     setStep('multiproject');
   };
 
-  const handleProjectFormChange = (field, value) => {
+  const handleProjectFormChange = (
+    field: keyof ProjectForm,
+    value: string,
+  ) => {
     setProjectForm((prev) => ({
       ...prev,
       [field]: value,
@@ -145,18 +180,18 @@ export function AuthorizationScreen({
     setProjectError('');
   };
 
-  const handleSelectMultiproject = (projectId) => {
-    const selectedProject = multiprojects.find((project) => project.id === projectId);
+  const handleSelectMultiproject = (projectId: string) => {
+    const selectedProject = multiprojects.find(
+      (project) => project.id === projectId,
+    );
+
+    if (!selectedProject) {
+      return;
+    }
 
     setSelectedMultiprojectId(projectId);
-
-    if (typeof setSelectedMultiproject === 'function') {
-      setSelectedMultiproject(selectedProject);
-    }
-
-    if (typeof setActiveScreen === 'function') {
-      setActiveScreen('Главная');
-    }
+    setSelectedMultiproject(selectedProject);
+    setActiveScreen('Главная');
   };
 
   const handleCreateMultiproject = () => {
@@ -173,8 +208,8 @@ export function AuthorizationScreen({
       return;
     }
 
-    const newProject = {
-      id: Date.now(),
+    const newProject: Multiproject = {
+      id: crypto.randomUUID(),
       name,
       planningHorizon,
       createdAt: new Date().toISOString().slice(0, 10),
@@ -182,14 +217,8 @@ export function AuthorizationScreen({
 
     setMultiprojects((prev) => [...prev, newProject]);
     setSelectedMultiprojectId(newProject.id);
-
-    if (typeof setSelectedMultiproject === 'function') {
-      setSelectedMultiproject(newProject);
-    }
-
-    if (typeof setActiveScreen === 'function') {
-      setActiveScreen('Главная');
-    }
+    setSelectedMultiproject(newProject);
+    setActiveScreen('Главная');
   };
 
   return (

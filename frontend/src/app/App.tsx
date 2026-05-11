@@ -18,10 +18,17 @@ import { GoalsScreen } from './components/GoalsScreen';
 import { AlternativesScreen } from './components/AlternativesScreen';
 import { PlanScreen } from './components/PlanScreen';
 
+type Multiproject = {
+  id: string;
+  name: string;
+  planningHorizon: string;
+  createdAt: string;
+};
 export default function App() {
   const [activeScreen, setActiveScreen] = useState('Авторизация');
-  const [selectedMultiproject, setSelectedMultiproject] = useState(null);
-
+  const [selectedMultiproject, setSelectedMultiproject] =
+    useState<Multiproject | null>(null);
+    
   const menuItems = [
     { icon: Home, label: 'Главная' },
     { icon: FileText, label: 'Контекст' },

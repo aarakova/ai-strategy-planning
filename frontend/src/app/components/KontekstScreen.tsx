@@ -1,12 +1,68 @@
 import { useMemo, useState } from 'react';
 import { Upload, Target, Plus, Trash2 } from 'lucide-react';
 
-const emptyGuidelineForm = {
+type Priority = 'Высокий' | 'Средний' | 'Низкий' | '';
+
+type ProjectStatus = 'Не начато' | 'В работе' | 'Завершено' | '';
+
+type Guideline = {
+  id: string;
+  vision: string;
+  priority: Priority;
+};
+
+type GuidelineForm = {
+  vision: string;
+  priority: Priority;
+};
+
+type Project = {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  startDate: string;
+  endDate: string;
+  analysts: string;
+  developers: string;
+  testers: string;
+  constraints: string;
+  deviations: string;
+  description: string;
+};
+
+type ProjectForm = {
+  id: string | null;
+  name: string;
+  status: ProjectStatus;
+  startDate: string;
+  endDate: string;
+  analysts: string;
+  developers: string;
+  testers: string;
+  constraints: string;
+  deviations: string;
+  description: string;
+};
+
+type DependencyRelation = {
+  id: string;
+  baseProjectId: string;
+  dependentProjectId: string;
+};
+
+type PortfolioConstraints = {
+  analystsLimit: string;
+  developersLimit: string;
+  testersLimit: string;
+  criticalDeadline: string;
+};
+
+const emptyGuidelineForm: GuidelineForm = {
   vision: '',
   priority: '',
 };
 
-const emptyProjectForm = {
+const emptyProjectForm: ProjectForm = {
   id: null,
   name: '',
   status: '',
@@ -29,27 +85,29 @@ const generateId = () => {
 };
 
 export function KontekstScreen() {
-  const [planningData, setPlanningData] = useState({
-    portfolioName: '',
-    planningHorizon: '',
-  });
+  const [guidelineForm, setGuidelineForm] =
+    useState<GuidelineForm>(emptyGuidelineForm);
 
-  const [guidelineForm, setGuidelineForm] = useState({ ...emptyGuidelineForm });
-  const [guidelines, setGuidelines] = useState([]);
+  const [guidelines, setGuidelines] = useState<Guideline[]>([]);
 
-  const [projectForm, setProjectForm] = useState({ ...emptyProjectForm });
-  const [projects, setProjects] = useState([]);
+  const [projectForm, setProjectForm] =
+    useState<ProjectForm>(emptyProjectForm);
 
-  const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [dependentProjectId, setDependentProjectId] = useState('');
-  const [dependencyRelations, setDependencyRelations] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  const [portfolioConstraints, setPortfolioConstraints] = useState({
-    analystsLimit: '',
-    developersLimit: '',
-    testersLimit: '',
-    criticalDeadline: '',
-  });
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [dependentProjectId, setDependentProjectId] = useState<string>('');
+
+  const [dependencyRelations, setDependencyRelations] =
+    useState<DependencyRelation[]>([]);
+
+  const [portfolioConstraints, setPortfolioConstraints] =
+    useState<PortfolioConstraints>({
+      analystsLimit: '',
+      developersLimit: '',
+      testersLimit: '',
+      criticalDeadline: '',
+    });
 
   const totalRoleLoad = useMemo(() => {
     return projects.reduce(
@@ -59,25 +117,21 @@ export function KontekstScreen() {
         acc.testers += Number(project.testers || 0);
         return acc;
       },
-      { analysts: 0, developers: 0, testers: 0 }
+      { analysts: 0, developers: 0, testers: 0 },
     );
   }, [projects]);
 
-  const getProjectNameById = (id) => {
+  const getProjectNameById = (id: string) => {
     return projects.find((project) => project.id === id)?.name || 'Проект не найден';
   };
 
-  const handlePlanningChange = (field, value) => {
-    setPlanningData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleGuidelineChange = (field, value) => {
+  const handleGuidelineChange = (
+    field: keyof GuidelineForm,
+    value: string,
+  ) => {
     setGuidelineForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: value as Priority,
     }));
   };
 
@@ -98,18 +152,24 @@ export function KontekstScreen() {
     setGuidelineForm({ ...emptyGuidelineForm });
   };
 
-  const handleDeleteGuideline = (id) => {
+  const handleDeleteGuideline = (id: string) => {
     setGuidelines((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleProjectChange = (field, value) => {
+  const handleProjectChange = (
+    field: keyof ProjectForm,
+    value: string,
+  ) => {
     setProjectForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: field === 'status' ? (value as ProjectStatus) : value,
     }));
   };
 
-  const handleNumericProjectChange = (field, value) => {
+  const handleNumericProjectChange = (
+    field: keyof Pick<ProjectForm, 'analysts' | 'developers' | 'testers'>,
+    value: string,
+  ) => {
     const onlyDigits = value.replace(/\D/g, '');
 
     setProjectForm((prev) => ({
@@ -128,7 +188,7 @@ export function KontekstScreen() {
       return;
     }
 
-    const preparedProject = {
+    const preparedProject: Project = {
       id: generateId(),
       name: projectForm.name.trim(),
       status: projectForm.status,
@@ -146,17 +206,17 @@ export function KontekstScreen() {
     setProjectForm({ ...emptyProjectForm });
   };
 
-  const handleDeleteProject = (index) => {
-    const projectId = projects[index].id;
-
-    setProjects((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+  const handleDeleteProject = (projectId: string) => {
+    setProjects((prev) =>
+      prev.filter((project) => project.id !== projectId),
+    );
 
     setDependencyRelations((prev) =>
       prev.filter(
         (relation) =>
-          relation.dependentProjectId !== projectId &&
-          relation.baseProjectId !== projectId
-      )
+          relation.baseProjectId !== projectId &&
+          relation.dependentProjectId !== projectId,
+      ),
     );
 
     if (selectedProjectId === projectId) {
@@ -168,14 +228,23 @@ export function KontekstScreen() {
     }
   };
 
-  const handleConstraintChange = (field, value) => {
+  const handleConstraintChange = (
+    field: keyof PortfolioConstraints,
+    value: string,
+  ) => {
     setPortfolioConstraints((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  const handleNumericConstraintChange = (field, value) => {
+  const handleNumericConstraintChange = (
+    field: keyof Pick<
+      PortfolioConstraints,
+      'analystsLimit' | 'developersLimit' | 'testersLimit'
+    >,
+    value: string,
+  ) => {
     const onlyDigits = value.replace(/\D/g, '');
 
     setPortfolioConstraints((prev) => ({
@@ -192,7 +261,7 @@ export function KontekstScreen() {
     const relationExists = dependencyRelations.some(
       (relation) =>
         relation.baseProjectId === selectedProjectId &&
-        relation.dependentProjectId === dependentProjectId
+        relation.dependentProjectId === dependentProjectId,
     );
 
     if (relationExists) {
@@ -211,11 +280,13 @@ export function KontekstScreen() {
     setDependentProjectId('');
   };
 
-  const handleDeleteDependency = (id) => {
-    setDependencyRelations((prev) => prev.filter((relation) => relation.id !== id));
+  const handleDeleteDependency = (id: string) => {
+    setDependencyRelations((prev) =>
+      prev.filter((relation) => relation.id !== id),
+    );
   };
 
-  const getStatusStyles = (status) => {
+  const getStatusStyles = (status: ProjectStatus) => {
     switch (status) {
       case 'Не начато':
         return 'bg-blue-100 text-blue-700';
@@ -240,7 +311,9 @@ export function KontekstScreen() {
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h2 className="text-neutral-900 mb-1">Загрузка отчета о факторах внешней среды</h2>
+                <h2 className="text-neutral-900 mb-1">
+                  Загрузка отчета о факторах внешней среды
+                </h2>
                 <p className="text-sm text-neutral-500">Раздел в разработке</p>
               </div>
               <span className="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
@@ -275,7 +348,9 @@ export function KontekstScreen() {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_auto] gap-4 items-end mb-5">
               <div>
-                <label className="block text-sm text-neutral-700 mb-2">Видение (к чему стремимся?)</label>
+                <label className="block text-sm text-neutral-700 mb-2">
+                  Видение (к чему стремимся?)
+                </label>
                 <textarea
                   value={guidelineForm.vision}
                   onChange={(e) => handleGuidelineChange('vision', e.target.value)}
@@ -285,7 +360,9 @@ export function KontekstScreen() {
               </div>
 
               <div>
-                <label className="block text-sm text-neutral-700 mb-2">Приоритет ориентира</label>
+                <label className="block text-sm text-neutral-700 mb-2">
+                  Приоритет ориентира
+                </label>
                 <select
                   value={guidelineForm.priority}
                   onChange={(e) => handleGuidelineChange('priority', e.target.value)}
@@ -326,8 +403,8 @@ export function KontekstScreen() {
                           item.priority === 'Высокий'
                             ? 'bg-rose-100 text-rose-700'
                             : item.priority === 'Средний'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-neutral-100 text-neutral-600'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-neutral-100 text-neutral-600'
                         }`}
                       >
                         {item.priority}
@@ -511,7 +588,7 @@ export function KontekstScreen() {
                     </tr>
                   </thead>
                   <tbody>
-                    {projects.map((project, index) => (
+                    {projects.map((project) => (
                       <tr key={project.id} className="border-b border-neutral-100 align-top">
                         <td className="py-3 px-4 text-sm text-neutral-700">{project.name}</td>
                         <td className="py-3 px-4">
@@ -536,7 +613,7 @@ export function KontekstScreen() {
                         <td className="py-3 px-4">
                           <button
                             type="button"
-                            onClick={() => handleDeleteProject(index)}
+                            onClick={() => handleDeleteProject(project.id)}
                             className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
                             aria-label="Удалить проект"
                           >
