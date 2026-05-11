@@ -271,32 +271,6 @@ export function KontekstScreen() {
           </section>
 
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
-            <h2 className="text-neutral-900 mb-4">Данные планирования</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-neutral-700 mb-2">Название мультипроекта</label>
-                <input
-                  type="text"
-                  value={planningData.portfolioName}
-                  onChange={(e) => handlePlanningChange('portfolioName', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Например, Цифровая трансформация продуктовой платформы"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-neutral-700 mb-2">Горизонт планирования</label>
-                <input
-                  type="date"
-                  value={planningData.planningHorizon}
-                  onChange={(e) => handlePlanningChange('planningHorizon', e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <h2 className="text-neutral-900 mb-4">Стратегические ориентиры</h2>
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px_auto] gap-4 items-end mb-5">
