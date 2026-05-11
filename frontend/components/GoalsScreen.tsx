@@ -61,8 +61,6 @@ const initialSuggestedGoals = [
     projectIds: ['project-1', 'project-3'],
     orientationExplanation:
       'Цель поддерживает ускорение вывода результатов на рынок и повышение управляемости портфеля.',
-    explanation:
-      'Цель предложена на основе ориентиров на ускорение вывода результатов и наличия проектов по CI/CD и оптимизации согласований.',
   },
   {
     id: 'ai-goal-2',
@@ -78,8 +76,6 @@ const initialSuggestedGoals = [
     projectIds: ['project-2'],
     orientationExplanation:
       'Цель направлена на повышение устойчивости архитектуры и снижение операционных рисков.',
-    explanation:
-      'Цель предложена, поскольку в портфеле есть проект по рефакторингу ядра, а один из ключевых ориентиров связан с устойчивостью архитектуры.',
   },
 ];
 
@@ -96,13 +92,16 @@ const emptyForm = {
   orientationExplanation: '',
 };
 
-const realismPositiveWords = [
-  'сократить',
-  'снизить',
-  'увеличить',
-  'повысить',
-  'уменьшить',
-  'обеспечить',
+const fixedRealismIssues = [
+  'Формулировка цели слишком короткая или общая',
+  'Измеримость цели задана неполно',
+  'Для KPI не указано конкретное целевое значение',
+  'Не обоснована достижимость цели',
+  'Не указан конкретный срок достижения',
+  'Не выбраны стратегические ориентиры',
+  'Не выбраны проекты, обеспечивающие достижение цели',
+  'Не пояснено влияние цели на стратегические ориентиры',
+  'Формулировка цели может быть слишком абстрактной',
 ];
 
 const conflictPairs = [
@@ -163,57 +162,8 @@ function isGoalComplete(goal) {
       goal.kpiTarget &&
       goal.kpiUnit &&
       goal.orientationIds.length &&
-      goal.projectIds.length &&
       goal.orientationExplanation
   );
-}
-
-function getGoalRealism(goal) {
-  let score = 0;
-  const issues = [];
-
-  if (goal.specific && goal.specific.length >= 20) score += 25;
-  else issues.push('Формулировка цели слишком короткая или общая');
-
-  if (goal.kpiName && goal.kpiTarget && goal.kpiUnit) score += 20;
-  else issues.push('Измеримость цели задана неполно');
-
-  if (/\d/.test(goal.kpiTarget)) score += 10;
-  else issues.push('Для KPI не указано конкретное целевое значение');
-
-  if (goal.achievable && goal.achievable.length >= 20) score += 15;
-  else issues.push('Не обоснована достижимость цели');
-
-  if (goal.timeBound && /\d/.test(goal.timeBound)) score += 15;
-  else issues.push('Не указан конкретный срок достижения');
-
-  if (goal.orientationIds.length > 0) score += 5;
-  else issues.push('Не выбраны стратегические ориентиры');
-
-  if (goal.projectIds.length > 0) score += 5;
-  else issues.push('Не выбраны проекты, обеспечивающие достижение цели');
-
-  if (goal.orientationExplanation && goal.orientationExplanation.length >= 15) score += 5;
-  else issues.push('Не пояснено влияние цели на стратегические ориентиры');
-
-  const normalizedSpecific = normalizeText(goal.specific);
-  if (realismPositiveWords.some((word) => normalizedSpecific.includes(word))) {
-    score += 5;
-  } else {
-    issues.push('Формулировка цели может быть слишком абстрактной');
-  }
-
-  const boundedScore = Math.min(score, 100);
-
-  let status = 'Низкая реалистичность';
-  if (boundedScore >= 80) status = 'Высокая реалистичность';
-  else if (boundedScore >= 60) status = 'Средняя реалистичность';
-
-  return {
-    score: boundedScore,
-    status,
-    issues,
-  };
 }
 
 function getAlignmentScore(goal, project) {
@@ -262,64 +212,9 @@ function getCoverageExplanation(status) {
 }
 
 function getProjectShortExplanation(score) {
-  if (score >= 0.8) {
-    return 'Проект напрямую поддерживает достижение цели.';
-  }
-  if (score >= 0.6) {
-    return 'Проект заметно способствует достижению цели.';
-  }
+  if (score >= 0.8) return 'Проект напрямую поддерживает достижение цели.';
+  if (score >= 0.6) return 'Проект заметно способствует достижению цели.';
   return 'Проект частично связан с целью.';
-}
-
-function getRealismClasses(score) {
-  if (score >= 80) return 'bg-emerald-100 text-emerald-700';
-  if (score >= 60) return 'bg-amber-100 text-amber-700';
-  return 'bg-red-100 text-red-700';
-}
-
-function generateAiCompletionSuggestions(form) {
-  const next = { ...form };
-
-  if (!next.specific && next.orientationExplanation) {
-    next.specific = `Повысить результативность направления, связанного с: ${next.orientationExplanation}`;
-  }
-
-  if (!next.achievable && next.orientationIds.length > 0) {
-    next.achievable =
-      'Цель достижима при последовательной реализации связанных проектов и сохранении приоритетности работ.';
-  }
-
-  if (!next.timeBound) {
-    next.timeBound = 'До конца планового периода';
-  }
-
-  if (!next.kpiName && next.specific) {
-    next.kpiName = 'Степень достижения целевого результата';
-  }
-
-  if (!next.kpiTarget) {
-    next.kpiTarget = '15';
-  }
-
-  if (!next.kpiUnit) {
-    next.kpiUnit = '%';
-  }
-
-  if (!next.orientationExplanation && next.orientationIds.length > 0) {
-    next.orientationExplanation =
-      'Цель поддерживает выбранные стратегические ориентиры и способствует достижению приоритетных направлений развития.';
-  }
-
-  if (!next.projectIds.length && next.orientationIds.length > 0) {
-    next.projectIds = projects
-      .filter((project) =>
-        project.relatedOrientationIds.some((id) => next.orientationIds.includes(id))
-      )
-      .slice(0, 2)
-      .map((project) => project.id);
-  }
-
-  return next;
 }
 
 function getProjectsForGoal(goal, allProjects) {
@@ -339,12 +234,11 @@ function getProjectsForGoal(goal, allProjects) {
     .sort((a, b) => b.score - a.score);
 
   const status = getCoverageStatus(related.length);
-  const explanation = getCoverageExplanation(status);
 
   return {
     relatedProjects: related,
     coverageStatus: status,
-    coverageExplanation: explanation,
+    coverageExplanation: getCoverageExplanation(status),
   };
 }
 
@@ -453,7 +347,6 @@ function IssueCard({ type, description, variant = 'warning' }) {
 }
 
 function GoalCard({ goal, onDelete, orientationsMap, cardRef }) {
-  const realism = getGoalRealism(goal);
   const { relatedProjects, coverageStatus, coverageExplanation } = getProjectsForGoal(
     goal,
     projects
@@ -484,10 +377,6 @@ function GoalCard({ goal, onDelete, orientationsMap, cardRef }) {
               }`}
             >
               {isGoalComplete(goal) ? 'Полная формулировка' : 'Есть незаполненные поля'}
-            </span>
-
-            <span className={`px-2 py-1 rounded text-xs ${getRealismClasses(realism.score)}`}>
-              Реалистичность: {realism.score}%
             </span>
           </div>
         </div>
@@ -625,12 +514,6 @@ function SuggestedGoalCard({ goal, onAdd, orientationsMap }) {
           <span className="font-medium text-neutral-900">T:</span> {goal.timeBound}
         </p>
       </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-        <p className="text-sm text-neutral-700">
-          <span className="font-medium text-neutral-900">Пояснение:</span> {goal.explanation}
-        </p>
-      </div>
     </div>
   );
 }
@@ -652,7 +535,6 @@ export function GoalsScreen() {
       orientationExplanation:
         'Цель поддерживает ускорение вывода результатов на рынок и повышает управляемость портфеля.',
       createdBy: 'user',
-      explanation: '',
     },
     {
       id: 'goal-2',
@@ -669,7 +551,6 @@ export function GoalsScreen() {
       orientationExplanation:
         'Цель направлена на повышение устойчивости архитектуры и снижение операционных рисков.',
       createdBy: 'user',
-      explanation: '',
     },
     {
       id: 'goal-3',
@@ -686,13 +567,12 @@ export function GoalsScreen() {
       orientationExplanation:
         'Цель также направлена на ускорение вывода результатов на рынок и повышение управляемости портфеля.',
       createdBy: 'user',
-      explanation: '',
     },
   ]);
 
   const [form, setForm] = useState(emptyForm);
-  const [suggestedGoals, setSuggestedGoals] = useState(initialSuggestedGoals);
-  const [isSuggestedVisible, setIsSuggestedVisible] = useState(true);
+  const [suggestedGoals, setSuggestedGoals] = useState([]);
+  const [isSuggestedGenerated, setIsSuggestedGenerated] = useState(false);
 
   const formRef = useRef(null);
   const goalRefs = useRef({});
@@ -703,8 +583,6 @@ export function GoalsScreen() {
       return acc;
     }, {});
   }, []);
-
-  const realismCheck = useMemo(() => getGoalRealism(form), [form]);
 
   const conflictsAndDuplicates = useMemo(() => {
     const duplicates = [
@@ -784,8 +662,9 @@ export function GoalsScreen() {
     setForm(emptyForm);
   }
 
-  function handleSuggestCompletion() {
-    setForm((prev) => generateAiCompletionSuggestions(prev));
+  function handleGenerateSuggestedGoals() {
+    setSuggestedGoals(initialSuggestedGoals);
+    setIsSuggestedGenerated(true);
   }
 
   function handleSaveGoal() {
@@ -797,7 +676,6 @@ export function GoalsScreen() {
       ...form,
       id: savedGoalId,
       createdBy: 'user',
-      explanation: '',
     };
 
     setGoals((prev) => [payload, ...prev]);
@@ -959,51 +837,36 @@ export function GoalsScreen() {
             </div>
 
             <div className="mt-6 p-4 bg-neutral-50 border border-neutral-200 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <h3 className="text-sm font-medium text-neutral-900">
-                  Проверка реалистичности цели
-                </h3>
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <h3 className="text-sm font-medium text-neutral-900">
+                    Проверка реалистичности цели
+                  </h3>
+                </div>
+
+                <span className="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
+                  В разработке
+                </span>
               </div>
 
               <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span
-                  className={`px-2 py-1 rounded text-xs ${getRealismClasses(
-                    realismCheck.score
-                  )}`}
-                >
-                  {realismCheck.status}
+                <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-700">
+                  Низкая реалистичность
                 </span>
-                <span className="text-sm text-neutral-700">
-                  Оценка: {realismCheck.score}%
-                </span>
+                <span className="text-sm text-neutral-700">Оценка: 0%</span>
               </div>
 
-              {realismCheck.issues.length > 0 ? (
-                <div className="space-y-2">
-                  {realismCheck.issues.map((issue, index) => (
-                    <p key={index} className="text-sm text-neutral-700">
-                      • {issue}
-                    </p>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-neutral-700">
-                  Формулировка выглядит полной и достаточно реалистичной для дальнейшего
-                  анализа.
-                </p>
-              )}
+              <div className="space-y-2">
+                {fixedRealismIssues.map((issue, index) => (
+                  <p key={index} className="text-sm text-neutral-700">
+                    • {issue}
+                  </p>
+                ))}
+              </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                onClick={handleSuggestCompletion}
-                className="px-4 py-3 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2"
-              >
-                <Sparkles className="w-4 h-4" />
-                Предложить заполнение пустых полей
-              </button>
-
               <button
                 onClick={handleSaveGoal}
                 disabled={!isFormComplete}
@@ -1027,8 +890,8 @@ export function GoalsScreen() {
 
             {!isFormComplete ? (
               <p className="text-sm text-red-600 mt-3">
-                Цель нельзя добавить, пока не заполнены все поля SMART, KPI,
-                стратегические ориентиры и связанные проекты.
+                Цель нельзя добавить, пока не заполнены все поля SMART, KPI 
+                и стратегические ориентиры.
               </p>
             ) : null}
           </section>
@@ -1065,14 +928,15 @@ export function GoalsScreen() {
               </div>
 
               <button
-                onClick={() => setIsSuggestedVisible((prev) => !prev)}
-                className="px-3 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 hover:bg-neutral-100 transition-colors"
+                onClick={handleGenerateSuggestedGoals}
+                className="px-3 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm flex items-center gap-2"
               >
-                {isSuggestedVisible ? 'Скрыть раздел' : 'Показать раздел'}
+                <Sparkles className="w-4 h-4" />
+                Предложить цели
               </button>
             </div>
 
-            {isSuggestedVisible ? (
+            {isSuggestedGenerated ? (
               <div className="space-y-3">
                 {suggestedGoals.length ? (
                   suggestedGoals.map((goal) => (
@@ -1091,7 +955,14 @@ export function GoalsScreen() {
                   </div>
                 )}
               </div>
-            ) : null}
+            ) : (
+              <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                <p className="text-sm text-neutral-700">
+                  Нажмите «Предложить цели», чтобы сформировать список целей на основе
+                  стратегических ориентиров и проектов.
+                </p>
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
@@ -1100,18 +971,18 @@ export function GoalsScreen() {
                 <AlertTriangle className="w-5 h-5 text-amber-500" />
                 <h2 className="text-neutral-900">Конфликты и дублирование целей</h2>
               </div>
-          
-               <span className="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
+
+              <span className="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
                 В разработке
               </span>
             </div>
-          
+
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-neutral-900 mb-3">
                   Дублирование целей
                 </h3>
-          
+
                 <div className="space-y-3">
                   {conflictsAndDuplicates.duplicates.length ? (
                     conflictsAndDuplicates.duplicates.map((item) => (
@@ -1131,12 +1002,12 @@ export function GoalsScreen() {
                   )}
                 </div>
               </div>
-          
+
               <div>
                 <h3 className="text-sm font-medium text-neutral-900 mb-3">
                   Конфликты целей
                 </h3>
-          
+
                 <div className="space-y-3">
                   {conflictsAndDuplicates.conflicts.length ? (
                     conflictsAndDuplicates.conflicts.map((item) => (

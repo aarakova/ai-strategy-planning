@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   BarChart3,
   CalendarRange,
@@ -9,16 +8,11 @@ import {
   ShieldAlert,
   Briefcase,
   Activity,
-  Pencil,
-  Save,
-  Plus,
-  Trash2,
   Sparkles,
 } from 'lucide-react';
 
-export function PlanScreen() {
-  const [editingPhaseIndex, setEditingPhaseIndex] = useState<number | null>(null);
-  const [editedPhase, setEditedPhase] = useState<any | null>(null);
+export function PlanScreen({ selectedMultiproject }) {
+  const multiprojectName = selectedMultiproject?.name || 'Название мультипроекта';
 
   const planSummary = {
     selectedVariant: 'Вариант 2 — сбалансированный',
@@ -28,14 +22,9 @@ export function PlanScreen() {
     milestonesCount: 4,
     risksCount: 5,
     unmetConstraintsCount: 2,
-    resources: [
-      { role: 'Аналитики', count: 6 },
-      { role: 'Разработчики', count: 10 },
-      { role: 'Тестировщики', count: 4 },
-    ],
   };
 
-  const [phases, setPhases] = useState([
+  const phases = [
     {
       phase: 'Этап 1',
       title: 'Подготовка архитектурной основы',
@@ -47,16 +36,8 @@ export function PlanScreen() {
         status: 'Достигнута',
       },
       works: [
-        {
-          project: 'Проект 1',
-          share: '30%',
-          roles: 'аналитики, разработчики',
-        },
-        {
-          project: 'Проект 2',
-          share: '15%',
-          roles: 'разработчики',
-        },
+        { project: 'Проект 1', share: '30%', roles: 'аналитики, разработчики' },
+        { project: 'Проект 2', share: '15%', roles: 'разработчики' },
       ],
       resources: [
         { role: 'Аналитики', requiredHours: 320, availableHours: 480 },
@@ -75,16 +56,8 @@ export function PlanScreen() {
         status: 'Запланирована',
       },
       works: [
-        {
-          project: 'Проект 1',
-          share: '70%',
-          roles: 'разработчики, тестировщики',
-        },
-        {
-          project: 'Проект 3',
-          share: '35%',
-          roles: 'аналитики, разработчики',
-        },
+        { project: 'Проект 1', share: '70%', roles: 'разработчики, тестировщики' },
+        { project: 'Проект 3', share: '35%', roles: 'аналитики, разработчики' },
       ],
       resources: [
         { role: 'Аналитики', requiredHours: 560, availableHours: 640 },
@@ -103,16 +76,8 @@ export function PlanScreen() {
         status: 'Запланирована',
       },
       works: [
-        {
-          project: 'Проект 3',
-          share: '45%',
-          roles: 'разработчики, тестировщики',
-        },
-        {
-          project: 'Проект 4',
-          share: '40%',
-          roles: 'разработчики, тестировщики',
-        },
+        { project: 'Проект 3', share: '45%', roles: 'разработчики, тестировщики' },
+        { project: 'Проект 4', share: '40%', roles: 'разработчики, тестировщики' },
       ],
       resources: [
         { role: 'Аналитики', requiredHours: 280, availableHours: 480 },
@@ -131,16 +96,8 @@ export function PlanScreen() {
         status: 'Запланирована',
       },
       works: [
-        {
-          project: 'Проект 4',
-          share: '60%',
-          roles: 'разработчики, тестировщики',
-        },
-        {
-          project: 'Проект 5',
-          share: '25%',
-          roles: 'аналитики',
-        },
+        { project: 'Проект 4', share: '60%', roles: 'разработчики, тестировщики' },
+        { project: 'Проект 5', share: '25%', roles: 'аналитики' },
       ],
       resources: [
         { role: 'Аналитики', requiredHours: 180, availableHours: 480 },
@@ -148,7 +105,7 @@ export function PlanScreen() {
         { role: 'Тестировщики', requiredHours: 420, availableHours: 640 },
       ],
     },
-  ]);
+  ];
 
   const risks = [
     {
@@ -192,64 +149,6 @@ export function PlanScreen() {
       impact: 'Повышается сложность координации и контроля зависимостей.',
     },
   ];
-
-  const handleEditPhase = (index: number) => {
-    setEditingPhaseIndex(index);
-    setEditedPhase(JSON.parse(JSON.stringify(phases[index])));
-  };
-
-  const handleCancelEdit = () => {
-    setEditingPhaseIndex(null);
-    setEditedPhase(null);
-  };
-
-  const handleSavePhase = () => {
-    if (editingPhaseIndex !== null && editedPhase) {
-      const updatedPhases = [...phases];
-      updatedPhases[editingPhaseIndex] = editedPhase;
-      setPhases(updatedPhases);
-      setEditingPhaseIndex(null);
-      setEditedPhase(null);
-    }
-  };
-
-  const handlePhaseFieldChange = (field: string, value: any) => {
-    setEditedPhase({ ...editedPhase, [field]: value });
-  };
-
-  const handleMilestoneChange = (field: string, value: any) => {
-    setEditedPhase({
-      ...editedPhase,
-      milestone: { ...editedPhase.milestone, [field]: value },
-    });
-  };
-
-  const handleWorkChange = (workIndex: number, field: string, value: any) => {
-    const updatedWorks = [...editedPhase.works];
-    updatedWorks[workIndex] = { ...updatedWorks[workIndex], [field]: value };
-    setEditedPhase({ ...editedPhase, works: updatedWorks });
-  };
-
-  const handleAddWork = () => {
-    setEditedPhase({
-      ...editedPhase,
-      works: [...editedPhase.works, { project: '', share: '', roles: '' }],
-    });
-  };
-
-  const handleRemoveWork = (workIndex: number) => {
-    const updatedWorks = editedPhase.works.filter((_: any, i: number) => i !== workIndex);
-    setEditedPhase({ ...editedPhase, works: updatedWorks });
-  };
-
-  const handleResourceChange = (resourceIndex: number, field: string, value: any) => {
-    const updatedResources = [...editedPhase.resources];
-    updatedResources[resourceIndex] = {
-      ...updatedResources[resourceIndex],
-      [field]: Number(value) || 0,
-    };
-    setEditedPhase({ ...editedPhase, resources: updatedResources });
-  };
 
   const getPhaseStatusColor = (status: string) => {
     if (status === 'Выполнен') return 'bg-emerald-100 text-emerald-700';
@@ -304,7 +203,8 @@ export function PlanScreen() {
   return (
     <main className="flex-1 overflow-auto">
       <div className="max-w-6xl mx-auto p-8">
-        <h1 className="text-neutral-900 mb-2">План Название мультипроекта</h1>
+        <h1 className="text-neutral-900 mb-2">План &quot;{multiprojectName}&quot;</h1>
+
         <p className="text-sm text-neutral-500 mb-8">
           Формирование стратегического плана мультипроекта на основе выбранной альтернативы
         </p>
@@ -390,6 +290,7 @@ export function PlanScreen() {
                   <CalendarRange className="w-5 h-5 text-blue-500" />
                   <h2 className="text-neutral-900">Этапы реализации плана</h2>
                 </div>
+
                 <p className="text-sm text-neutral-600 leading-relaxed">
                   Этапы сформированы по контрольным точкам. Каждый этап включает состав
                   проектов, завершается контрольной точкой и содержит расчет потребности
@@ -404,488 +305,182 @@ export function PlanScreen() {
             </div>
 
             <div className="space-y-5">
-              {phases.map((item, index) => {
-                const isEditing = editingPhaseIndex === index && editedPhase;
-
-                return (
-                  <div
-                    key={index}
-                    className="p-5 bg-neutral-50 rounded-xl border border-neutral-200"
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div>
-                        <p className="text-xs text-neutral-500 mb-1">{item.phase}</p>
-                        <h3 className="text-sm font-medium text-neutral-900">
-                          {item.title}
-                        </h3>
-                        <p className="text-sm text-neutral-500 mt-1">{item.period}</p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditPhase(index)}
-                          className="px-3 py-1.5 rounded-lg text-xs text-neutral-700 border border-neutral-200 hover:bg-white transition-colors flex items-center gap-1.5"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          <span>Редактировать</span>
-                        </button>
-
-                        <span
-                          className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getPhaseStatusColor(
-                            item.status,
-                          )}`}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {isEditing && (
-                      <div className="p-5 bg-white rounded-xl border border-blue-100 mb-5">
-                        <div className="flex items-center justify-between mb-5">
-                          <div>
-                            <h4 className="text-sm font-medium text-neutral-900">
-                              Редактирование этапа
-                            </h4>
-                            <p className="text-sm text-neutral-500 mt-1">
-                              Изменения отображаются на основной странице после сохранения
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={handleCancelEdit}
-                              className="px-3 py-2 rounded-lg text-sm text-neutral-700 border border-neutral-200 hover:bg-neutral-50 transition-colors"
-                            >
-                              Отмена
-                            </button>
-
-                            <button
-                              onClick={handleSavePhase}
-                              className="px-3 py-2 rounded-lg text-sm text-white bg-neutral-900 hover:bg-neutral-800 transition-colors flex items-center gap-2"
-                            >
-                              <Save className="w-4 h-4" />
-                              <span>Сохранить</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-6">
-                          <section>
-                            <h5 className="text-sm font-medium text-neutral-900 mb-3">
-                              Основная информация
-                            </h5>
-
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Название этапа
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedPhase.title}
-                                  onChange={(e) =>
-                                    handlePhaseFieldChange('title', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Период
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedPhase.period}
-                                  onChange={(e) =>
-                                    handlePhaseFieldChange('period', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="Май 2026 — Июнь 2026"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Статус этапа
-                                </label>
-                                <select
-                                  value={editedPhase.status}
-                                  onChange={(e) =>
-                                    handlePhaseFieldChange('status', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option>Планируется</option>
-                                  <option>В работе</option>
-                                  <option>Выполнен</option>
-                                </select>
-                              </div>
-                            </div>
-                          </section>
-
-                          <section>
-                            <h5 className="text-sm font-medium text-neutral-900 mb-3">
-                              Контрольная точка
-                            </h5>
-
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Название контрольной точки
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedPhase.milestone.title}
-                                  onChange={(e) =>
-                                    handleMilestoneChange('title', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Дата
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editedPhase.milestone.date}
-                                  onChange={(e) =>
-                                    handleMilestoneChange('date', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="ДД.ММ.ГГГГ"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-sm text-neutral-700 mb-2">
-                                  Статус контрольной точки
-                                </label>
-                                <select
-                                  value={editedPhase.milestone.status}
-                                  onChange={(e) =>
-                                    handleMilestoneChange('status', e.target.value)
-                                  }
-                                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option>Запланирована</option>
-                                  <option>Достигнута</option>
-                                </select>
-                              </div>
-                            </div>
-                          </section>
-
-                          <section>
-                            <div className="flex items-center justify-between mb-3">
-                              <h5 className="text-sm font-medium text-neutral-900">
-                                Состав этапа
-                              </h5>
-
-                              <button
-                                onClick={handleAddWork}
-                                className="px-3 py-1.5 rounded-lg text-xs text-blue-600 border border-blue-200 hover:bg-blue-50 transition-colors flex items-center gap-1"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Добавить проект</span>
-                              </button>
-                            </div>
-
-                            <div className="space-y-3">
-                              {editedPhase.works.map((work: any, workIndex: number) => (
-                                <div
-                                  key={workIndex}
-                                  className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-                                >
-                                  <div className="grid grid-cols-3 gap-3">
-                                    <div>
-                                      <label className="block text-xs text-neutral-600 mb-1">
-                                        Проект
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={work.project}
-                                        onChange={(e) =>
-                                          handleWorkChange(
-                                            workIndex,
-                                            'project',
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      />
-                                    </div>
-
-                                    <div>
-                                      <label className="block text-xs text-neutral-600 mb-1">
-                                        Доля
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={work.share}
-                                        onChange={(e) =>
-                                          handleWorkChange(
-                                            workIndex,
-                                            'share',
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder="30%"
-                                      />
-                                    </div>
-
-                                    <div className="flex items-end gap-3">
-                                      <div className="flex-1">
-                                        <label className="block text-xs text-neutral-600 mb-1">
-                                          Роли
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={work.roles}
-                                          onChange={(e) =>
-                                            handleWorkChange(
-                                              workIndex,
-                                              'roles',
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="аналитики, разработчики"
-                                        />
-                                      </div>
-
-                                      <button
-                                        onClick={() => handleRemoveWork(workIndex)}
-                                        className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </section>
-
-                          <section>
-                            <h5 className="text-sm font-medium text-neutral-900 mb-3">
-                              Ресурсы этапа
-                            </h5>
-
-                            <div className="space-y-3">
-                              {editedPhase.resources.map(
-                                (resource: any, resourceIndex: number) => (
-                                  <div
-                                    key={resourceIndex}
-                                    className="p-4 bg-neutral-50 rounded-lg border border-neutral-200"
-                                  >
-                                    <h6 className="text-sm font-medium text-neutral-900 mb-3">
-                                      {resource.role}
-                                    </h6>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                      <div>
-                                        <label className="block text-xs text-neutral-600 mb-1">
-                                          Требуется, ч
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={resource.requiredHours}
-                                          onChange={(e) =>
-                                            handleResourceChange(
-                                              resourceIndex,
-                                              'requiredHours',
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                      </div>
-
-                                      <div>
-                                        <label className="block text-xs text-neutral-600 mb-1">
-                                          Доступно, ч
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={resource.availableHours}
-                                          onChange={(e) =>
-                                            handleResourceChange(
-                                              resourceIndex,
-                                              'availableHours',
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          </section>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Briefcase className="w-4 h-4 text-neutral-500" />
-                        <h4 className="text-sm font-medium text-neutral-900">
-                          Состав этапа
-                        </h4>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full bg-white border border-neutral-200 rounded-lg overflow-hidden">
-                          <thead>
-                            <tr className="border-b border-neutral-200">
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Проект
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Доля
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Роли
-                              </th>
-                            </tr>
-                          </thead>
-
-                          <tbody>
-                            {item.works.map((work, workIndex) => (
-                              <tr
-                                key={workIndex}
-                                className="border-b border-neutral-100 last:border-b-0"
-                              >
-                                <td className="py-3 px-4 text-sm text-neutral-700">
-                                  {work.project}
-                                </td>
-                                <td className="py-3 px-4 text-sm font-medium text-neutral-900">
-                                  {work.share}
-                                </td>
-                                <td className="py-3 px-4 text-sm text-neutral-700">
-                                  {work.roles}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="p-4 bg-white rounded-lg border border-neutral-200 mb-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-start gap-3">
-                          <Flag className="w-4 h-4 text-amber-500 mt-0.5" />
-                          <div>
-                            <p className="text-xs text-neutral-500 mb-1">
-                              Контрольная точка
-                            </p>
-                            <h4 className="text-sm font-medium text-neutral-900 mb-1">
-                              {item.milestone.title}
-                            </h4>
-                            <p className="text-sm text-neutral-500">
-                              Дата: {item.milestone.date}
-                            </p>
-                          </div>
-                        </div>
-
-                        <span
-                          className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getMilestoneStatusColor(
-                            item.milestone.status,
-                          )}`}
-                        >
-                          {item.milestone.status}
-                        </span>
-                      </div>
-                    </div>
-
+              {phases.map((item, index) => (
+                <div
+                  key={index}
+                  className="p-5 bg-neutral-50 rounded-xl border border-neutral-200"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-4">
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Users className="w-4 h-4 text-neutral-500" />
-                        <h4 className="text-sm font-medium text-neutral-900">
-                          Ресурсы этапа
-                        </h4>
-                      </div>
+                      <p className="text-xs text-neutral-500 mb-1">{item.phase}</p>
+                      <h3 className="text-sm font-medium text-neutral-900">
+                        {item.title}
+                      </h3>
+                      <p className="text-sm text-neutral-500 mt-1">{item.period}</p>
+                    </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full bg-white border border-neutral-200 rounded-lg overflow-hidden">
-                          <thead>
-                            <tr className="border-b border-neutral-200">
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Роль
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Требуется, ч
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Доступно, ч
-                              </th>
-                              <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                                Загрузка
-                              </th>
+                    <span
+                      className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getPhaseStatusColor(
+                        item.status,
+                      )}`}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Briefcase className="w-4 h-4 text-neutral-500" />
+                      <h4 className="text-sm font-medium text-neutral-900">
+                        Состав этапа
+                      </h4>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full bg-white border border-neutral-200 rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="border-b border-neutral-200">
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Проект
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Доля
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Роли
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {item.works.map((work, workIndex) => (
+                            <tr
+                              key={workIndex}
+                              className="border-b border-neutral-100 last:border-b-0"
+                            >
+                              <td className="py-3 px-4 text-sm text-neutral-700">
+                                {work.project}
+                              </td>
+                              <td className="py-3 px-4 text-sm font-medium text-neutral-900">
+                                {work.share}
+                              </td>
+                              <td className="py-3 px-4 text-sm text-neutral-700">
+                                {work.roles}
+                              </td>
                             </tr>
-                          </thead>
-
-                          <tbody>
-                            {item.resources.map((resource) => {
-                              const load = getLoadPercent(
-                                resource.requiredHours,
-                                resource.availableHours,
-                              );
-
-                              return (
-                                <tr
-                                  key={resource.role}
-                                  className="border-b border-neutral-100 last:border-b-0"
-                                >
-                                  <td className="py-3 px-4 text-sm font-medium text-neutral-900">
-                                    {resource.role}
-                                  </td>
-
-                                  <td className="py-3 px-4 text-sm text-neutral-700">
-                                    {resource.requiredHours} ч
-                                  </td>
-
-                                  <td className="py-3 px-4 text-sm text-neutral-700">
-                                    {resource.availableHours} ч
-                                  </td>
-
-                                  <td className="py-3 px-4">
-                                    <div className="flex items-center gap-3 mb-1">
-                                      <div className="w-28 h-2 bg-neutral-100 rounded-full overflow-hidden">
-                                        <div
-                                          className={`h-full rounded-full ${getLoadColor(
-                                            load,
-                                          )}`}
-                                          style={{ width: `${Math.min(load, 100)}%` }}
-                                        />
-                                      </div>
-
-                                      <span className="text-sm text-neutral-700">
-                                        {load}%
-                                      </span>
-                                    </div>
-
-                                    <p className="text-xs text-neutral-500">
-                                      {getLoadText(load)}
-                                    </p>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                );
-              })}
+
+                  <div className="p-4 bg-white rounded-lg border border-neutral-200 mb-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <Flag className="w-4 h-4 text-amber-500 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-neutral-500 mb-1">
+                            Контрольная точка
+                          </p>
+                          <h4 className="text-sm font-medium text-neutral-900 mb-1">
+                            {item.milestone.title}
+                          </h4>
+                          <p className="text-sm text-neutral-500">
+                            Дата: {item.milestone.date}
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getMilestoneStatusColor(
+                          item.milestone.status,
+                        )}`}
+                      >
+                        {item.milestone.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Users className="w-4 h-4 text-neutral-500" />
+                      <h4 className="text-sm font-medium text-neutral-900">
+                        Ресурсы этапа
+                      </h4>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full bg-white border border-neutral-200 rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="border-b border-neutral-200">
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Роль
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Требуется, ч
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Доступно, ч
+                            </th>
+                            <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                              Загрузка
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {item.resources.map((resource) => {
+                            const load = getLoadPercent(
+                              resource.requiredHours,
+                              resource.availableHours,
+                            );
+
+                            return (
+                              <tr
+                                key={resource.role}
+                                className="border-b border-neutral-100 last:border-b-0"
+                              >
+                                <td className="py-3 px-4 text-sm font-medium text-neutral-900">
+                                  {resource.role}
+                                </td>
+
+                                <td className="py-3 px-4 text-sm text-neutral-700">
+                                  {resource.requiredHours} ч
+                                </td>
+
+                                <td className="py-3 px-4 text-sm text-neutral-700">
+                                  {resource.availableHours} ч
+                                </td>
+
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-3 mb-1">
+                                    <div className="w-28 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${getLoadColor(
+                                          load,
+                                        )}`}
+                                        style={{ width: `${Math.min(load, 100)}%` }}
+                                      />
+                                    </div>
+
+                                    <span className="text-sm text-neutral-700">
+                                      {load}%
+                                    </span>
+                                  </div>
+
+                                  <p className="text-xs text-neutral-500">
+                                    {getLoadText(load)}
+                                  </p>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 
@@ -963,15 +558,24 @@ export function PlanScreen() {
 
             <div className="space-y-3">
               {risks.map((item, index) => (
-                <div key={index} className="p-4 bg-white rounded-lg border border-neutral-200">
+                <div
+                  key={index}
+                  className="p-4 bg-white rounded-lg border border-neutral-200"
+                >
                   <div className="flex items-start gap-3">
-                    <div className={`w-2.5 h-2.5 rounded-full mt-2 ${getDotClasses(item.level)}`} />
+                    <div
+                      className={`w-2.5 h-2.5 rounded-full mt-2 ${getDotClasses(
+                        item.level,
+                      )}`}
+                    />
 
                     <div className="flex-1">
                       <p className="text-sm text-neutral-700 mb-2">{item.text}</p>
 
                       <span
-                        className={`inline-flex px-2 py-1 rounded text-xs ${getImpactClasses(item.level)}`}
+                        className={`inline-flex px-2 py-1 rounded text-xs ${getImpactClasses(
+                          item.level,
+                        )}`}
                       >
                         Влияние: {item.impact}
                       </span>

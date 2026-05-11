@@ -1,7 +1,6 @@
 import {
   Target,
   AlertTriangle,
-  Info,
   CheckCircle2,
   Clock3,
   Circle,
@@ -17,83 +16,28 @@ const planSummary = {
   milestonesCount: 4,
   risksCount: 5,
   unmetConstraintsCount: 2,
-  resources: [
-    { role: 'Аналитики', count: 6 },
-    { role: 'Разработчики', count: 10 },
-    { role: 'Тестировщики', count: 4 },
-  ],
 };
 
 const planData = {
   stages: [
-    {
-      stage: 'Загрузка контекста',
-      status: 'completed',
-      statusLabel: 'Завершено',
-    },
-    {
-      stage: 'Анализ',
-      status: 'completed',
-      statusLabel: 'Завершено',
-    },
-    {
-      stage: 'Определение целей',
-      status: 'active',
-      statusLabel: 'В процессе',
-    },
-    {
-      stage: 'Выбор альтернативы',
-      status: 'pending',
-      statusLabel: 'Не начато',
-    },
-    {
-      stage: 'Формирование плана',
-      status: 'pending',
-      statusLabel: 'Не начато',
-    },
+    { stage: 'Загрузка контекста', status: 'completed', statusLabel: 'Завершено' },
+    { stage: 'Анализ', status: 'completed', statusLabel: 'Завершено' },
+    { stage: 'Определение целей', status: 'active', statusLabel: 'В процессе' },
+    { stage: 'Выбор альтернативы', status: 'pending', statusLabel: 'Не начато' },
+    { stage: 'Формирование плана', status: 'pending', statusLabel: 'Не начато' },
   ],
 
   resourceBalance: [
-    {
-      role: 'Аналитики',
-      need: 420,
-      limit: 480,
-      balance: 60,
-      type: 'profit',
-    },
-    {
-      role: 'Разработчики',
-      need: 1280,
-      limit: 1120,
-      balance: -160,
-      type: 'deficit',
-    },
-    {
-      role: 'Тестировщики',
-      need: 560,
-      limit: 520,
-      balance: -40,
-      type: 'deficit',
-    },
+    { role: 'Аналитики', need: 420, limit: 480, balance: 60, type: 'profit' },
+    { role: 'Разработчики', need: 1280, limit: 1120, balance: -160, type: 'deficit' },
+    { role: 'Тестировщики', need: 560, limit: 520, balance: -40, type: 'deficit' },
   ],
 
   goals: [
-    {
-      title: 'Сократить сроки вывода изменений в релиз',
-      priority: 'Высокий',
-    },
-    {
-      title: 'Повысить устойчивость архитектуры информационной системы',
-      priority: 'Высокий',
-    },
-    {
-      title: 'Снизить риски срыва сроков по зависимым проектам',
-      priority: 'Средний',
-    },
-    {
-      title: 'Повысить прозрачность управления мультипроектом',
-      priority: 'Средний',
-    },
+    { title: 'Сократить сроки вывода изменений в релиз', priority: 'Высокий' },
+    { title: 'Повысить устойчивость архитектуры информационной системы', priority: 'Высокий' },
+    { title: 'Снизить риски срыва сроков по зависимым проектам', priority: 'Средний' },
+    { title: 'Повысить прозрачность управления мультипроектом', priority: 'Средний' },
   ],
 
   risks: [
@@ -116,30 +60,6 @@ const planData = {
       risk: 'Незначительные расхождения в оценках отдельных этапов.',
       level: 'low',
       levelLabel: 'Низкий',
-    },
-  ],
-
-  problemAreas: [
-    {
-      title: 'Дефицит разработчиков',
-      description:
-        'Суммарная потребность превышает доступный лимит на 160 ч, что может повлиять на сроки реализации проектов.',
-      level: 'high',
-      source: 'Анализ загрузки и дефицита ресурсов по ролям',
-    },
-    {
-      title: 'Дефицит тестировщиков',
-      description:
-        'Потребность превышает лимит на 40 ч, поэтому этапы проверки могут стать ограничением при формировании плана.',
-      level: 'medium',
-      source: 'Анализ загрузки и дефицита ресурсов по ролям',
-    },
-    {
-      title: 'Риск каскадной задержки',
-      description:
-        'Зависимые проекты требуют дополнительного контроля, так как отклонение одного проекта может повлиять на последующие работы.',
-      level: 'high',
-      source: 'Ключевые риски стратегического плана',
     },
   ],
 };
@@ -189,24 +109,22 @@ function getBalanceStyles(type: string) {
   return 'bg-red-50 text-red-700 border-red-200';
 }
 
-export function GlavnayaScreen() {
-  const progressPercent = Math.round(
-    (planSummary.completedStages / planSummary.totalStages) * 100,
-  );
+export function GlavnayaScreen({ selectedMultiproject }) {
+  const multiprojectName = selectedMultiproject?.name || 'Мультипроект не выбран';
 
   return (
     <main className="flex-1 overflow-auto">
       <div className="max-w-6xl mx-auto p-8">
         <h1 className="text-neutral-900 mb-2">Стратегическое планирование</h1>
+
         <p className="text-sm text-neutral-500 mb-8">
           Главная страница отображает текущее состояние планирования, проблемные
           зоны, риски, цели и сводные показатели стратегического плана.
         </p>
 
-        <h1 className="text-neutral-900 mb-6">Название мультипроекта</h1>
+        <h1 className="text-neutral-900 mb-6">{multiprojectName}</h1>
 
         <div className="space-y-6">
-          {/* Состояние этапов */}
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <h2 className="text-neutral-900 mb-4">Состояние этапов</h2>
 
@@ -221,9 +139,7 @@ export function GlavnayaScreen() {
                   >
                     <div className="flex items-center gap-3">
                       {styles.icon}
-                      <span className="text-sm text-neutral-800">
-                        {item.stage}
-                      </span>
+                      <span className="text-sm text-neutral-800">{item.stage}</span>
                     </div>
 
                     <span className={`px-2 py-0.5 rounded text-xs ${styles.badge}`}>
@@ -235,7 +151,6 @@ export function GlavnayaScreen() {
             </div>
           </section>
 
-          {/* Ключевые риски */}
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
@@ -266,7 +181,6 @@ export function GlavnayaScreen() {
             </div>
           </section>
 
-          {/* Анализ загрузки и дефицита ресурсов */}
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-5">
               <Users className="w-5 h-5 text-blue-500" />
@@ -324,7 +238,6 @@ export function GlavnayaScreen() {
             </div>
           </section>
 
-          {/* Стратегические цели */}
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <Target className="w-5 h-5 text-blue-500" />
@@ -353,13 +266,12 @@ export function GlavnayaScreen() {
             </div>
           </section>
 
-          {/* Паспорт стратегического плана */}
-                    <section className="bg-white border border-neutral-200 rounded-xl p-6">
+          <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-5 h-5 text-blue-500" />
               <h2 className="text-neutral-900">Паспорт стратегического плана</h2>
             </div>
-          
+
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">Выбранный вариант</p>
@@ -367,28 +279,28 @@ export function GlavnayaScreen() {
                   {planSummary.selectedVariant}
                 </p>
               </div>
-          
+
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">Плановый горизонт</p>
                 <p className="text-sm font-medium text-neutral-900">
                   {planSummary.planningHorizon}
                 </p>
               </div>
-          
+
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">Контрольных точек</p>
                 <p className="text-sm font-medium text-neutral-900">
                   {planSummary.milestonesCount}
                 </p>
               </div>
-          
+
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">Рисков</p>
                 <p className="text-sm font-medium text-neutral-900">
                   {planSummary.risksCount}
                 </p>
               </div>
-          
+
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">
                   Ограничения в зоне внимания
@@ -397,10 +309,10 @@ export function GlavnayaScreen() {
                   {planSummary.unmetConstraintsCount}
                 </p>
               </div>
-          
+
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-xs text-neutral-500 mb-1">Прогресс выполнения</p>
-          
+
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium text-neutral-900">
                     {planSummary.completedStages} из {planSummary.totalStages}
@@ -412,7 +324,7 @@ export function GlavnayaScreen() {
                     %
                   </p>
                 </div>
-          
+
                 <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-blue-500 rounded-full"
