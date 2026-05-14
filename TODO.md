@@ -127,10 +127,10 @@ App.tsx
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 2.1.1 | Заменить `_MOCK_KEY_RISKS` на реальные риски из `analysis_results` | ⬜ |
-| 2.1.2 | Заменить `_MOCK_RESOURCE_ANALYSIS` на данные из `analysis_results` | ⬜ |
-| 2.1.3 | Заменить `_MOCK_GOALS` на реальные цели из `strategic_goals` | ⬜ |
-| 2.1.4 | Заменить `_MOCK_PLAN_PASSPORT` на данные из `strategic_plans` | ⬜ |
+| 2.1.1 | Заменить `_MOCK_KEY_RISKS` на реальные риски из `analysis_results` | ✅ |
+| 2.1.2 | Заменить `_MOCK_RESOURCE_ANALYSIS` на данные из `analysis_results` | ✅ |
+| 2.1.3 | Заменить `_MOCK_GOALS` на реальные цели из `strategic_goals` | ✅ |
+| 2.1.4 | Заменить `_MOCK_PLAN_PASSPORT` на данные из `strategic_plans` | ✅ |
 
 ### 2.2 analysis.py
 

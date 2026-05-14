@@ -1,43 +1,41 @@
 from fastapi import APIRouter, Depends
 
+from ..database import get_db
 from ..dependencies import get_context_for_user
 
 router = APIRouter(prefix="/contexts", tags=["Home"])
 
-_MOCK_KEY_RISKS = [
-    {"risk": "Задержка проекта A блокирует запуск проекта B", "impact": "HIGH"},
-    {"risk": "Дефицит ресурсов разработчиков на пиковом этапе", "impact": "MEDIUM"},
-]
-
-_MOCK_RESOURCE_ANALYSIS = [
-    {"role": "Аналитики", "required": 320, "limit": 500, "delta": 180},
-    {"role": "Разработчики", "required": 1200, "limit": 900, "delta": -300},
-    {"role": "Тестировщики", "required": 240, "limit": 300, "delta": 60},
-]
-
-_MOCK_GOALS = [
-    {"id": "mock-g1", "specific": "Увеличить долю цифровых продаж до 60%", "priority": "HIGH"},
-    {"id": "mock-g2", "specific": "Сократить время вывода продукта до 6 месяцев", "priority": "MEDIUM"},
-    {"id": "mock-g3", "specific": "Снизить операционные затраты на 15%", "priority": "LOW"},
-]
-
-_MOCK_PLAN_PASSPORT = {
-    "selected_variant": "Сбалансированный вариант",
-    "planning_horizon_months": 8,
-    "checkpoint_count": 4,
-    "risk_count": 5,
-    "constraints_in_attention_count": 2,
-    "execution_progress": 25,
-}
-
 
 @router.get("/{contextId}/home")
 async def get_home(ctx: dict = Depends(get_context_for_user)):
+    db = get_db()
+    context_id = str(ctx["_id"])
+
+    analysis = await db.analysis_results.find_one({"contextId": context_id})
+    plan = await db.strategic_plans.find_one({"contextId": context_id})
+    goal_docs = await db.strategic_goals.find(
+        {"contextId": context_id, "context": "USER_CREATED"}
+    ).to_list(length=50)
+
+    key_risks = analysis.get("analysis_risks", []) if analysis else []
+    resource_analysis = analysis.get("resource_analysis", []) if analysis else []
+
+    strategic_goals = [
+        {
+            "id": str(d["_id"]),
+            "specific": d.get("specific", ""),
+            "priority": d.get("priority", ""),
+        }
+        for d in goal_docs
+    ]
+
+    plan_passport = plan.get("plan_passport") if plan else None
+
     return {
         "portfolio_name": ctx["portfolio_name"],
         "planning_stages_status": ctx.get("planning_stages_status", []),
-        "key_risks": _MOCK_KEY_RISKS,
-        "resource_analysis": _MOCK_RESOURCE_ANALYSIS,
-        "strategic_goals": _MOCK_GOALS,
-        "plan_passport": _MOCK_PLAN_PASSPORT,
+        "key_risks": key_risks,
+        "resource_analysis": resource_analysis,
+        "strategic_goals": strategic_goals,
+        "plan_passport": plan_passport,
     }
