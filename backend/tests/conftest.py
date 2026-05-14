@@ -88,6 +88,9 @@ def mock_db():
     db.portfolio_constraints.delete_many = AsyncMock()
     db.portfolio_constraints.insert_one = AsyncMock()
     db.portfolio_constraints.find_one = AsyncMock(return_value=None)
+    db.strategic_goals.find = MagicMock(return_value=_make_cursor([]))
+    db.strategic_goals.delete_many = AsyncMock()
+    db.strategic_goals.insert_many = AsyncMock()
     return db
 
 
@@ -95,6 +98,7 @@ def mock_db():
 async def http_client(mock_db, fake_context, monkeypatch):
     monkeypatch.setattr("app.routers.analysis.get_db", lambda: mock_db)
     monkeypatch.setattr("app.routers.context.get_db", lambda: mock_db)
+    monkeypatch.setattr("app.routers.goals.get_db", lambda: mock_db)
     app.dependency_overrides[get_context_for_user] = lambda: fake_context
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client

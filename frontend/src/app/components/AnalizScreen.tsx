@@ -1,21 +1,270 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Play,
   AlertTriangle,
   Info,
   Clock3,
   Users,
-  ArrowRight,
   CheckCircle2,
   Loader2,
+  ArrowRight,
 } from 'lucide-react';
 import { analysisApi } from '../api/analysis';
 import type { AnalysisResult } from '../api/analysis';
+import { contextApi } from '../api/context';
+import type { SavedContext } from '../api/context';
+
+// ─── Dependency graph ─────────────────────────────────────────────────────────
+
+const NODE_R = 38;
+const COL_GAP = 180;
+const ROW_GAP = 110;
+const MARGIN_X = 60;
+const MARGIN_Y = 70;
+
+type GraphNode = {
+  idx: number;
+  name: string;
+  status: string;
+  x: number;
+  y: number;
+};
+
+type GraphEdge = { from: number; to: number };
+
+function buildGraph(
+  projects: SavedContext['projects'],
+  dependencies: SavedContext['dependencies'],
+): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
+  const n = projects.length;
+  if (n === 0) return { nodes: [], edges: [], width: 300, height: 200 };
+
+  const nameToIdx = new Map(projects.map((p, i) => [p.name, i]));
+
+  const prereqs: number[][] = Array.from({ length: n }, () => []);
+  const edges: GraphEdge[] = [];
+
+  for (const dep of dependencies) {
+    const from = nameToIdx.get(dep.main_project_name);
+    const to = nameToIdx.get(dep.dependent_project_name);
+    if (from !== undefined && to !== undefined) {
+      prereqs[to].push(from);
+      edges.push({ from, to });
+    }
+  }
+
+  // Assign levels via longest-path from sources
+  const levels = new Array(n).fill(0);
+  const computed = new Array(n).fill(false);
+
+  function getLevel(i: number): number {
+    if (computed[i]) return levels[i];
+    computed[i] = true;
+    if (prereqs[i].length === 0) {
+      levels[i] = 0;
+    } else {
+      levels[i] = 1 + Math.max(...prereqs[i].map(getLevel));
+    }
+    return levels[i];
+  }
+  for (let i = 0; i < n; i++) getLevel(i);
+
+  const maxLevel = Math.max(...levels);
+  const byLevel: number[][] = Array.from({ length: maxLevel + 1 }, () => []);
+  for (let i = 0; i < n; i++) byLevel[levels[i]].push(i);
+
+  // Compute positions
+  const maxPerCol = Math.max(...byLevel.map((col) => col.length));
+  const totalHeight = MARGIN_Y * 2 + (maxPerCol - 1) * ROW_GAP;
+  const totalWidth = MARGIN_X * 2 + maxLevel * COL_GAP;
+
+  const positions: { x: number; y: number }[] = new Array(n);
+  for (let lvl = 0; lvl <= maxLevel; lvl++) {
+    const col = byLevel[lvl];
+    const colHeight = (col.length - 1) * ROW_GAP;
+    const startY = MARGIN_Y + (totalHeight - MARGIN_Y * 2 - colHeight) / 2;
+    const x = MARGIN_X + lvl * COL_GAP;
+    col.forEach((nodeIdx, j) => {
+      positions[nodeIdx] = { x, y: startY + j * ROW_GAP };
+    });
+  }
+
+  const nodes: GraphNode[] = projects.map((p, i) => ({
+    idx: i,
+    name: p.name,
+    status: p.status,
+    x: positions[i].x,
+    y: positions[i].y,
+  }));
+
+  return {
+    nodes,
+    edges,
+    width: Math.max(totalWidth, 300),
+    height: Math.max(totalHeight, 160),
+  };
+}
+
+function nodeColors(status: string) {
+  if (status === 'Завершено') return { fill: '#ecfdf5', stroke: '#10b981' };
+  if (status === 'В работе') return { fill: '#eff6ff', stroke: '#3b82f6' };
+  return { fill: '#f5f5f5', stroke: '#a3a3a3' };
+}
+
+function truncate(name: string, max = 12) {
+  return name.length <= max ? name : name.slice(0, max - 1) + '…';
+}
+
+function DependencyGraph({ ctx }: { ctx: SavedContext | null }) {
+  const { nodes, edges, width, height } = useMemo(
+    () => buildGraph(ctx?.projects ?? [], ctx?.dependencies ?? []),
+    [ctx],
+  );
+
+  if (!ctx || ctx.projects.length === 0) {
+    return (
+      <div className="p-8 text-center text-sm text-neutral-500 bg-neutral-50 rounded-lg border border-neutral-200">
+        {ctx ? 'Проекты не добавлены в контекст.' : 'Загрузка данных контекста…'}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="bg-neutral-50 rounded-lg border border-neutral-200 overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          className="min-w-full"
+        >
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#a1a1aa" />
+            </marker>
+          </defs>
+
+          {/* Edges */}
+          {edges.map((e, i) => {
+            const s = nodes[e.from];
+            const t = nodes[e.to];
+            const x1 = s.x + NODE_R;
+            const y1 = s.y;
+            const x2 = t.x - NODE_R - 8;
+            const y2 = t.y;
+            const cx = (x1 + x2) / 2;
+            return (
+              <path
+                key={i}
+                d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`}
+                fill="none"
+                stroke="#a1a1aa"
+                strokeWidth="2"
+                markerEnd="url(#arrow)"
+              />
+            );
+          })}
+
+          {/* Nodes */}
+          {nodes.map((node) => {
+            const { fill, stroke } = nodeColors(node.status);
+            const lines = node.name.split(' ');
+            const label = truncate(node.name, 14);
+            const multiLine = label.length > 8;
+
+            return (
+              <g key={node.idx}>
+                <circle
+                  cx={node.x}
+                  cy={node.y}
+                  r={NODE_R}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="2.5"
+                />
+                {multiLine ? (
+                  <>
+                    <text
+                      x={node.x}
+                      y={node.y - 7}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="#262626"
+                    >
+                      {label.slice(0, Math.ceil(label.length / 2))}
+                    </text>
+                    <text
+                      x={node.x}
+                      y={node.y + 7}
+                      textAnchor="middle"
+                      fontSize="10"
+                      fill="#262626"
+                    >
+                      {label.slice(Math.ceil(label.length / 2))}
+                    </text>
+                  </>
+                ) : (
+                  <text
+                    x={node.x}
+                    y={node.y + 4}
+                    textAnchor="middle"
+                    fontSize="11"
+                    fill="#262626"
+                  >
+                    {label}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-6 mt-4">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full border-2 border-emerald-500 bg-emerald-50" />
+          <span className="text-xs text-neutral-600">Завершено</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-50" />
+          <span className="text-xs text-neutral-600">В работе</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded-full border-2 border-neutral-400 bg-neutral-100" />
+          <span className="text-xs text-neutral-600">Не начато</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-8 border-t-2 border-neutral-400" />
+          <ArrowRight className="w-4 h-4 text-neutral-500" />
+          <span className="text-xs text-neutral-600">Зависимость</span>
+        </div>
+      </div>
+
+      {/* Node name tooltip table when names are long */}
+      {nodes.some((n) => n.name.length > 14) && (
+        <div className="mt-3 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+          <p className="text-xs text-neutral-500 mb-2">Полные названия проектов:</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            {nodes.map((n) => (
+              <span key={n.idx} className="text-xs text-neutral-700">
+                <span className="font-medium">{truncate(n.name, 14)}</span> — {n.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function AnalizScreen({ contextId }: { contextId: string | null }) {
   const [data, setData] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ctx, setCtx] = useState<SavedContext | null>(null);
 
+  // Load analysis with polling when IN_PROGRESS
   useEffect(() => {
     if (!contextId) return;
     let timer: ReturnType<typeof setTimeout>;
@@ -29,7 +278,7 @@ export function AnalizScreen({ contextId }: { contextId: string | null }) {
           timer = setTimeout(load, 5000);
         }
       } catch {
-        // ignore network errors silently
+        // ignore
       } finally {
         setLoading(false);
       }
@@ -37,6 +286,12 @@ export function AnalizScreen({ contextId }: { contextId: string | null }) {
 
     load();
     return () => clearTimeout(timer);
+  }, [contextId]);
+
+  // Load context data for dependency graph
+  useEffect(() => {
+    if (!contextId) { setCtx(null); return; }
+    contextApi.get(contextId).then(setCtx).catch(() => setCtx(null));
   }, [contextId]);
 
   const getStatusClasses = (status: 'ok' | 'warning' | 'critical') => {
@@ -271,75 +526,17 @@ export function AnalizScreen({ contextId }: { contextId: string | null }) {
         </p>
 
         <div className="space-y-6">
-          {/* Граф зависимостей — статичный, всегда виден */}
+          {/* Граф зависимостей — динамический */}
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <div className="flex items-center justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-neutral-900 mb-1">Граф зависимостей проектов</h2>
                 <p className="text-sm text-neutral-500">
-                  Направленный граф с учетом статуса проектов и связей между ними
+                  Направленный граф с учётом статуса проектов и связей между ними
                 </p>
               </div>
             </div>
-
-            <div className="bg-neutral-50 rounded-lg p-6 border border-neutral-200 overflow-x-auto">
-              <svg viewBox="0 0 920 310" className="w-full h-auto min-w-[860px]">
-                <defs>
-                  <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-                    <path d="M0,0 L10,5 L0,10 z" fill="#a1a1aa" />
-                  </marker>
-                </defs>
-                <line x1="150" y1="95" x2="305" y2="95" stroke="#a1a1aa" strokeWidth="2.5" markerEnd="url(#arrowGray)" />
-                <line x1="150" y1="225" x2="305" y2="225" stroke="#a1a1aa" strokeWidth="2.5" markerEnd="url(#arrowGray)" />
-                <line x1="385" y1="95" x2="540" y2="95" stroke="#a1a1aa" strokeWidth="2.5" markerEnd="url(#arrowGray)" />
-                <line x1="385" y1="225" x2="540" y2="225" stroke="#a1a1aa" strokeWidth="2.5" markerEnd="url(#arrowGray)" />
-                <line x1="620" y1="225" x2="775" y2="225" stroke="#a1a1aa" strokeWidth="2.5" markerEnd="url(#arrowGray)" />
-                <circle cx="110" cy="95" r="34" fill="#ecfdf5" stroke="#10b981" strokeWidth="2.5" />
-                <text x="110" y="90" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="110" y="104" textAnchor="middle" fontSize="12" fill="#262626">A</text>
-                <circle cx="110" cy="225" r="34" fill="#ecfdf5" stroke="#10b981" strokeWidth="2.5" />
-                <text x="110" y="220" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="110" y="234" textAnchor="middle" fontSize="12" fill="#262626">G</text>
-                <circle cx="345" cy="95" r="34" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2.5" />
-                <text x="345" y="90" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="345" y="104" textAnchor="middle" fontSize="12" fill="#262626">B</text>
-                <circle cx="345" cy="225" r="34" fill="#eff6ff" stroke="#3b82f6" strokeWidth="2.5" />
-                <text x="345" y="220" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="345" y="234" textAnchor="middle" fontSize="12" fill="#262626">C</text>
-                <circle cx="580" cy="95" r="34" fill="#f5f5f5" stroke="#a3a3a3" strokeWidth="2.5" />
-                <text x="580" y="90" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="580" y="104" textAnchor="middle" fontSize="12" fill="#262626">D</text>
-                <circle cx="580" cy="225" r="34" fill="#f5f5f5" stroke="#a3a3a3" strokeWidth="2.5" />
-                <text x="580" y="220" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="580" y="234" textAnchor="middle" fontSize="12" fill="#262626">E</text>
-                <circle cx="815" cy="225" r="34" fill="#f5f5f5" stroke="#a3a3a3" strokeWidth="2.5" />
-                <text x="815" y="220" textAnchor="middle" fontSize="11" fill="#262626">Проект</text>
-                <text x="815" y="234" textAnchor="middle" fontSize="12" fill="#262626">F</text>
-              </svg>
-
-              <div className="flex flex-wrap items-center gap-6 mt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-emerald-500 bg-emerald-50"></div>
-                  <span className="text-xs text-neutral-600">Завершено</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-50"></div>
-                  <span className="text-xs text-neutral-600">В работе</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-neutral-400 bg-neutral-100"></div>
-                  <span className="text-xs text-neutral-600">Не начато</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 border-t-2 border-neutral-400"></div>
-                  <span className="text-xs text-neutral-600">Зависимость</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-neutral-500" />
-                  <span className="text-xs text-neutral-600">Направление зависимости</span>
-                </div>
-              </div>
-            </div>
+            <DependencyGraph ctx={ctx} />
           </section>
 
           {renderContent()}

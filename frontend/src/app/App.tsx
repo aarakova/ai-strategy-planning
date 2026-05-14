@@ -8,6 +8,7 @@ import {
   GitBranch,
   BarChart,
   LogOut,
+  Layers,
 } from 'lucide-react';
 
 import { AuthorizationScreen } from './components/AuthorizationScreen';
@@ -98,7 +99,18 @@ export default function App() {
             })}
           </nav>
 
-          <div className="p-4 border-t border-neutral-200">
+          <div className="p-4 border-t border-neutral-200 space-y-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMultiproject(null);
+                setActiveScreen('Авторизация');
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-neutral-600 transition-colors hover:bg-neutral-100"
+            >
+              <Layers className="w-5 h-5" />
+              <span>Сменить проект</span>
+            </button>
             <button
               type="button"
               onClick={handleLogout}
@@ -122,7 +134,10 @@ export default function App() {
       )}
 
       {activeScreen === 'Главная' && (
-        <GlavnayaScreen selectedMultiproject={selectedMultiproject} />
+        <GlavnayaScreen
+          selectedMultiproject={selectedMultiproject}
+          contextId={selectedMultiproject?.id ?? null}
+        />
       )}
 
       {activeScreen === 'Контекст' && (
@@ -133,7 +148,7 @@ export default function App() {
         <AnalizScreen contextId={selectedMultiproject?.id ?? null} />
       )}
 
-      {activeScreen === 'Цели' && <GoalsScreen />}
+      {activeScreen === 'Цели' && <GoalsScreen contextId={selectedMultiproject?.id ?? null} />}
 
       {activeScreen === 'Альтернативы' && <AlternativesScreen />}
 

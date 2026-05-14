@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Target,
   Sparkles,
@@ -9,75 +9,14 @@ import {
   ShieldCheck,
   FolderKanban,
   Search,
+  Loader2,
 } from 'lucide-react';
 
-const strategicOrientations = [
-  { id: 'orientation-1', title: 'Сокращение времени вывода продуктов на рынок' },
-  { id: 'orientation-2', title: 'Повышение устойчивости архитектуры' },
-  { id: 'orientation-3', title: 'Снижение операционных рисков' },
-  { id: 'orientation-4', title: 'Рост прозрачности и управляемости портфеля' },
-];
+import { goalsApi, type GoalResponseItem } from '../api/goals';
+import { contextApi } from '../api/context';
 
-const projects = [
-  {
-    id: 'project-1',
-    title: 'Модернизация CI/CD',
-    description: 'Автоматизация сборки, тестирования и поставки релизов.',
-    relatedOrientationIds: ['orientation-1', 'orientation-4'],
-  },
-  {
-    id: 'project-2',
-    title: 'Рефакторинг ядра платформы',
-    description: 'Снижение технического долга и стабилизация архитектуры.',
-    relatedOrientationIds: ['orientation-2', 'orientation-3'],
-  },
-  {
-    id: 'project-3',
-    title: 'Оптимизация процессов согласования',
-    description: 'Сокращение ручных этапов согласования изменений и релизов.',
-    relatedOrientationIds: ['orientation-1', 'orientation-4'],
-  },
-  {
-    id: 'project-4',
-    title: 'Развитие системы мониторинга',
-    description:
-      'Повышение прозрачности состояния проектов и раннее выявление отклонений.',
-    relatedOrientationIds: ['orientation-3', 'orientation-4'],
-  },
-];
-
-const initialSuggestedGoals = [
-  {
-    id: 'ai-goal-1',
-    specific: 'Сократить средний цикл поставки изменений по мультипроекту',
-    achievable:
-      'Цель достижима за счёт автоматизации CI/CD и сокращения ручных этапов согласования',
-    timeBound: 'До конца IV квартала 2026 года',
-    priority: 'Высокий',
-    kpiName: 'Средний цикл поставки изменений',
-    kpiTarget: '14',
-    kpiUnit: 'дней',
-    orientationIds: ['orientation-1', 'orientation-4'],
-    projectIds: ['project-1', 'project-3'],
-    orientationExplanation:
-      'Цель поддерживает ускорение вывода результатов на рынок и повышение управляемости портфеля.',
-  },
-  {
-    id: 'ai-goal-2',
-    specific: 'Снизить объём критического технического долга по ключевым компонентам',
-    achievable:
-      'Достижимо при реализации проекта рефакторинга ядра и перераспределении приоритетов команд',
-    timeBound: 'До 1 декабря 2026 года',
-    priority: 'Высокий',
-    kpiName: 'Количество критических архитектурных замечаний',
-    kpiTarget: '25',
-    kpiUnit: '%',
-    orientationIds: ['orientation-2', 'orientation-3'],
-    projectIds: ['project-2'],
-    orientationExplanation:
-      'Цель направлена на повышение устойчивости архитектуры и снижение операционных рисков.',
-  },
-];
+type CtxOrientation = { id: string; title: string };
+type CtxProject = { id: string; title: string; description: string };
 
 const emptyForm = {
   specific: '',
@@ -87,22 +26,10 @@ const emptyForm = {
   kpiName: '',
   kpiTarget: '',
   kpiUnit: '',
-  orientationIds: [],
-  projectIds: [],
+  orientationIds: [] as string[],
+  projectIds: [] as string[],
   orientationExplanation: '',
 };
-
-const fixedRealismIssues = [
-  'Формулировка цели слишком короткая или общая',
-  'Измеримость цели задана неполно',
-  'Для KPI не указано конкретное целевое значение',
-  'Не обоснована достижимость цели',
-  'Не указан конкретный срок достижения',
-  'Не выбраны стратегические ориентиры',
-  'Не выбраны проекты, обеспечивающие достижение цели',
-  'Не пояснено влияние цели на стратегические ориентиры',
-  'Формулировка цели может быть слишком абстрактной',
-];
 
 const conflictPairs = [
   ['ускор', 'архитектур'],
@@ -111,7 +38,67 @@ const conflictPairs = [
   ['сократить срок', 'снизить риск'],
 ];
 
-function normalizeText(value) {
+type FrontendGoal = {
+  id: string;
+  specific: string;
+  achievable: string;
+  timeBound: string;
+  priority: string;
+  kpiName: string;
+  kpiTarget: string;
+  kpiUnit: string;
+  orientationIds: string[];
+  projectIds: string[];
+  orientationExplanation: string;
+  createdBy: 'user' | 'ai';
+  aiExplanation?: string;
+  projectCoverage?: { degree: string; explanation: string };
+  realismCheck?: { degree: string; score: number; issues: string[] };
+};
+
+function fromApi(g: GoalResponseItem): FrontendGoal {
+  return {
+    id: g.id,
+    specific: g.specific,
+    achievable: g.achievable,
+    timeBound: g.timebound,
+    priority: g.priority,
+    kpiName: g.kpi_name,
+    kpiTarget: String(g.kpi_target_value),
+    kpiUnit: g.kpi_unit,
+    orientationIds: g.orientation_ids ?? [],
+    projectIds: [],
+    orientationExplanation: g.orientation_explanation ?? '',
+    createdBy: g.context === 'AI_SUGGESTED' ? 'ai' : 'user',
+    aiExplanation: g.ai_explanation,
+    projectCoverage: g.project_coverage,
+    realismCheck: g.realism_check,
+  };
+}
+
+function toApiPayload(g: FrontendGoal, projectsList: CtxProject[]) {
+  return {
+    specific: g.specific,
+    kpi_name: g.kpiName,
+    kpi_target_value: parseFloat(g.kpiTarget) || 0,
+    kpi_unit: g.kpiUnit,
+    achievable: g.achievable,
+    timebound: g.timeBound,
+    priority: g.priority as 'Высокий' | 'Средний' | 'Низкий',
+    orientation_ids: g.orientationIds,
+    project_names: g.projectIds.map((id) => projectsList.find((p) => p.id === id)?.title ?? id),
+    orientation_explanation: g.orientationExplanation || undefined,
+  };
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('ru-RU');
+}
+
+function normalizeText(value: string) {
   return value
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
@@ -119,7 +106,7 @@ function normalizeText(value) {
     .trim();
 }
 
-function getCombinedGoalText(goal) {
+function getCombinedGoalText(goal: FrontendGoal) {
   return normalizeText(
     [
       goal.specific,
@@ -133,14 +120,14 @@ function getCombinedGoalText(goal) {
   );
 }
 
-function getTokens(text) {
+function getTokens(text: string) {
   return text
     .split(' ')
     .map((item) => item.trim())
     .filter((item) => item.length > 2);
 }
 
-function getJaccardSimilarity(a, b) {
+function getJaccardSimilarity(a: string, b: string) {
   const setA = new Set(getTokens(a));
   const setB = new Set(getTokens(b));
 
@@ -152,7 +139,7 @@ function getJaccardSimilarity(a, b) {
   return union ? intersection / union : 0;
 }
 
-function isGoalComplete(goal) {
+function isGoalComplete(goal: typeof emptyForm) {
   return Boolean(
     goal.specific &&
       goal.achievable &&
@@ -166,39 +153,30 @@ function isGoalComplete(goal) {
   );
 }
 
-function getAlignmentScore(goal, project) {
+function getAlignmentScore(goal: FrontendGoal, project: CtxProject) {
   const goalText = getCombinedGoalText(goal);
   const projectText = normalizeText(`${project.title} ${project.description}`);
   const semanticScore = getJaccardSimilarity(goalText, projectText);
-
-  const sharedOrientations = goal.orientationIds.filter((id) =>
-    project.relatedOrientationIds.includes(id)
-  ).length;
-  const orientationScore = goal.orientationIds.length
-    ? sharedOrientations / goal.orientationIds.length
-    : 0;
-
   const priorityScore =
     goal.priority === 'Высокий' ? 1 : goal.priority === 'Средний' ? 0.8 : 0.6;
-
-  return semanticScore * 0.55 + orientationScore * 0.3 + priorityScore * 0.15;
+  return semanticScore * 0.7 + priorityScore * 0.3;
 }
 
-function getCoverageStatus(scoreCount) {
+function getCoverageStatus(scoreCount: number) {
   if (scoreCount >= 3) return 'Высокое покрытие';
   if (scoreCount === 2) return 'Умеренное покрытие';
   if (scoreCount === 1) return 'Слабое покрытие';
   return 'Нет покрытия';
 }
 
-function getCoverageStatusClasses(status) {
+function getCoverageStatusClasses(status: string) {
   if (status === 'Высокое покрытие') return 'bg-emerald-100 text-emerald-700';
   if (status === 'Умеренное покрытие') return 'bg-amber-100 text-amber-700';
   if (status === 'Слабое покрытие') return 'bg-orange-100 text-orange-700';
   return 'bg-red-100 text-red-700';
 }
 
-function getCoverageExplanation(status) {
+function getCoverageExplanation(status: string) {
   if (status === 'Высокое покрытие') {
     return 'Цель хорошо обеспечена проектами и поддерживается несколькими инициативами.';
   }
@@ -211,13 +189,13 @@ function getCoverageExplanation(status) {
   return 'Для цели не выбраны проекты, обеспечивающие её достижение.';
 }
 
-function getProjectShortExplanation(score) {
+function getProjectShortExplanation(score: number) {
   if (score >= 0.8) return 'Проект напрямую поддерживает достижение цели.';
   if (score >= 0.6) return 'Проект заметно способствует достижению цели.';
   return 'Проект частично связан с целью.';
 }
 
-function getProjectsForGoal(goal, allProjects) {
+function getProjectsForGoal(goal: FrontendGoal, allProjects: CtxProject[]) {
   const selectedProjectIds = goal.projectIds || [];
 
   const related = allProjects
@@ -251,6 +229,15 @@ function SearchableCheckList({
   getItemTitle,
   getItemDescription,
   placeholder,
+}: {
+  title: string;
+  description?: string;
+  items: { id: string }[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  getItemTitle: (item: { id: string }) => string;
+  getItemDescription?: (item: { id: string }) => string;
+  placeholder: string;
 }) {
   const [query, setQuery] = useState('');
 
@@ -330,7 +317,15 @@ function SearchableCheckList({
   );
 }
 
-function IssueCard({ type, description, variant = 'warning' }) {
+function IssueCard({
+  type,
+  description,
+  variant = 'warning',
+}: {
+  type: string;
+  description: string;
+  variant?: 'warning' | 'danger';
+}) {
   const badgeClass =
     variant === 'danger'
       ? 'bg-red-100 text-red-700'
@@ -346,10 +341,22 @@ function IssueCard({ type, description, variant = 'warning' }) {
   );
 }
 
-function GoalCard({ goal, onDelete, orientationsMap, cardRef }) {
+function GoalCard({
+  goal,
+  onDelete,
+  orientationsMap,
+  cardRef,
+  projectsList,
+}: {
+  goal: FrontendGoal;
+  onDelete: (id: string) => void;
+  orientationsMap: Record<string, string>;
+  cardRef: (node: HTMLDivElement | null) => void;
+  projectsList: CtxProject[];
+}) {
   const { relatedProjects, coverageStatus, coverageExplanation } = getProjectsForGoal(
     goal,
-    projects
+    projectsList
   );
 
   return (
@@ -367,16 +374,6 @@ function GoalCard({ goal, onDelete, orientationsMap, cardRef }) {
 
             <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
               Приоритет: {goal.priority}
-            </span>
-
-            <span
-              className={`px-2 py-1 rounded text-xs ${
-                isGoalComplete(goal)
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              {isGoalComplete(goal) ? 'Полная формулировка' : 'Есть незаполненные поля'}
             </span>
           </div>
         </div>
@@ -405,62 +402,120 @@ function GoalCard({ goal, onDelete, orientationsMap, cardRef }) {
         <div className="text-neutral-700">
           <span className="font-medium text-neutral-900">R:</span>{' '}
           {goal.orientationExplanation}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {goal.orientationIds.map((id) => (
-              <span
-                key={id}
-                className="px-2 py-1 rounded text-xs bg-violet-100 text-violet-700"
-              >
-                {orientationsMap[id] || 'Ориентир'}
-              </span>
-            ))}
-          </div>
+          {goal.orientationIds.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {goal.orientationIds.map((id) => (
+                <span
+                  key={id}
+                  className="px-2 py-1 rounded text-xs bg-violet-100 text-violet-700"
+                >
+                  {orientationsMap[id] || id}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <p className="text-neutral-700">
-          <span className="font-medium text-neutral-900">T:</span> {goal.timeBound}
+          <span className="font-medium text-neutral-900">T:</span> {formatDate(goal.timeBound)}
         </p>
       </div>
 
-      <div className="mt-5 p-4 bg-white border border-neutral-200 rounded-lg">
-        <div className="flex items-center gap-2 mb-3">
-          <FolderKanban className="w-4 h-4 text-blue-500" />
-          <h4 className="text-sm font-medium text-neutral-900">Покрытие проектами</h4>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span
-            className={`px-2 py-1 rounded text-xs ${getCoverageStatusClasses(coverageStatus)}`}
-          >
-            {coverageStatus}
-          </span>
-        </div>
-
-        <p className="text-sm text-neutral-700 mb-3">{coverageExplanation}</p>
-
-        {relatedProjects.length ? (
-          <div className="space-y-2">
-            {relatedProjects.map((project) => (
-              <div
-                key={project.id}
-                className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg"
-              >
-                <p className="text-sm font-medium text-neutral-900">{project.title}</p>
-                <p className="text-sm text-neutral-600 mt-1">{project.explanation}</p>
-              </div>
-            ))}
+      {goal.projectCoverage ? (
+        <div className="mt-5 p-4 bg-white border border-neutral-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <FolderKanban className="w-4 h-4 text-blue-500" />
+            <h4 className="text-sm font-medium text-neutral-900">Покрытие проектами (ИИ)</h4>
           </div>
-        ) : (
-          <p className="text-sm text-neutral-500">Нет проектов, соответствующих цели.</p>
-        )}
-      </div>
+          <span
+            className={`px-2 py-1 rounded text-xs ${getCoverageStatusClasses(goal.projectCoverage.degree)}`}
+          >
+            {goal.projectCoverage.degree}
+          </span>
+          <p className="text-sm text-neutral-700 mt-2">{goal.projectCoverage.explanation}</p>
+          {goal.projectNames && goal.projectNames.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(goal as FrontendGoal & { projectNames?: string[] }).projectNames?.map((name) => (
+                <span key={name} className="px-2 py-1 rounded text-xs bg-neutral-100 text-neutral-700 border border-neutral-200">
+                  {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : goal.projectIds.length > 0 ? (
+        <div className="mt-5 p-4 bg-white border border-neutral-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <FolderKanban className="w-4 h-4 text-blue-500" />
+            <h4 className="text-sm font-medium text-neutral-900">Покрытие проектами</h4>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            <span className={`px-2 py-1 rounded text-xs ${getCoverageStatusClasses(coverageStatus)}`}>
+              {coverageStatus}
+            </span>
+          </div>
+
+          <p className="text-sm text-neutral-700 mb-3">{coverageExplanation}</p>
+
+          {relatedProjects.length ? (
+            <div className="space-y-2">
+              {relatedProjects.map((project) => (
+                <div key={project.id} className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg">
+                  <p className="text-sm font-medium text-neutral-900">{project.title}</p>
+                  <p className="text-sm text-neutral-600 mt-1">{project.explanation}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {goal.realismCheck ? (
+        <div className="mt-3 p-4 bg-white border border-neutral-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <h4 className="text-sm font-medium text-neutral-900">Проверка реалистичности (ИИ)</h4>
+          </div>
+          <div className="flex items-center gap-3 mb-2">
+            <span className={`px-2 py-1 rounded text-xs ${
+              goal.realismCheck.degree === 'Высокая' ? 'bg-emerald-100 text-emerald-700' :
+              goal.realismCheck.degree === 'Средняя' ? 'bg-amber-100 text-amber-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {goal.realismCheck.degree} реалистичность
+            </span>
+            <span className="text-sm text-neutral-700">Оценка: {goal.realismCheck.score}%</span>
+          </div>
+          {goal.realismCheck.issues.length > 0 && (
+            <div className="space-y-1">
+              {goal.realismCheck.issues.map((issue, i) => (
+                <p key={i} className="text-sm text-neutral-700">• {issue}</p>
+              ))}
+            </div>
+          )}
+          {goal.aiExplanation && (
+            <p className="text-sm text-neutral-500 mt-2 italic">{goal.aiExplanation}</p>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function SuggestedGoalCard({ goal, onAdd, orientationsMap }) {
+function SuggestedGoalCard({
+  goal,
+  onAdd,
+  orientationsMap,
+  isAdded,
+}: {
+  goal: FrontendGoal;
+  onAdd: (goal: FrontendGoal) => void;
+  orientationsMap: Record<string, string>;
+  isAdded: boolean;
+}) {
   return (
-    <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+    <div className={`p-4 rounded-lg border transition-colors ${isAdded ? 'bg-emerald-50 border-emerald-200' : 'bg-neutral-50 border-neutral-200'}`}>
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex-1">
           <h3 className="text-sm font-medium text-neutral-900 mb-2">{goal.specific}</h3>
@@ -472,15 +527,31 @@ function SuggestedGoalCard({ goal, onAdd, orientationsMap }) {
             <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">
               Приоритет: {goal.priority}
             </span>
+            {goal.realismCheck && (
+              <span className={`px-2 py-1 rounded text-xs ${
+                goal.realismCheck.degree === 'Высокая' ? 'bg-emerald-100 text-emerald-700' :
+                goal.realismCheck.degree === 'Средняя' ? 'bg-amber-100 text-amber-700' :
+                'bg-red-100 text-red-700'
+              }`}>
+                Реалистичность: {goal.realismCheck.score}%
+              </span>
+            )}
           </div>
         </div>
 
-        <button
-          onClick={() => onAdd(goal)}
-          className="px-3 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm"
-        >
-          Добавить в основной список
-        </button>
+        {isAdded ? (
+          <span className="px-3 py-2 rounded-lg text-sm bg-emerald-100 text-emerald-700 flex items-center gap-2 whitespace-nowrap">
+            <CheckCircle2 className="w-4 h-4" />
+            Добавлено
+          </span>
+        ) : (
+          <button
+            onClick={() => onAdd(goal)}
+            className="px-3 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm whitespace-nowrap"
+          >
+            Добавить в список
+          </button>
+        )}
       </div>
 
       <div className="space-y-2 text-sm">
@@ -498,104 +569,115 @@ function SuggestedGoalCard({ goal, onAdd, orientationsMap }) {
         <div className="text-neutral-700">
           <span className="font-medium text-neutral-900">R:</span>{' '}
           {goal.orientationExplanation}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {goal.orientationIds.map((id) => (
-              <span
-                key={id}
-                className="px-2 py-1 rounded text-xs bg-violet-100 text-violet-700"
-              >
-                {orientationsMap[id]}
-              </span>
-            ))}
-          </div>
+          {goal.orientationIds.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {goal.orientationIds.map((id) => (
+                <span key={id} className="px-2 py-1 rounded text-xs bg-violet-100 text-violet-700">
+                  {orientationsMap[id] || id}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <p className="text-neutral-700">
-          <span className="font-medium text-neutral-900">T:</span> {goal.timeBound}
+          <span className="font-medium text-neutral-900">T:</span> {formatDate(goal.timeBound)}
         </p>
       </div>
+
+      {goal.projectCoverage && (
+        <div className="mt-4 p-3 bg-white border border-neutral-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <FolderKanban className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-medium text-neutral-900">Покрытие проектами</span>
+            <span className={`px-2 py-1 rounded text-xs ${getCoverageStatusClasses(goal.projectCoverage.degree)}`}>
+              {goal.projectCoverage.degree}
+            </span>
+          </div>
+          <p className="text-sm text-neutral-700">{goal.projectCoverage.explanation}</p>
+        </div>
+      )}
+
+      {goal.aiExplanation && (
+        <p className="text-sm text-neutral-500 mt-3 italic">{goal.aiExplanation}</p>
+      )}
     </div>
   );
 }
 
-export function GoalsScreen() {
-  const [goals, setGoals] = useState([
-    {
-      id: 'goal-1',
-      specific: 'Сократить среднюю длительность цикла релиза по мультипроекту',
-      achievable:
-        'Достигается за счёт внедрения CI/CD и оптимизации процессов согласования',
-      timeBound: 'До 31 декабря 2026 года',
-      priority: 'Высокий',
-      kpiName: 'Средняя длительность цикла релиза',
-      kpiTarget: '14',
-      kpiUnit: 'дней',
-      orientationIds: ['orientation-1', 'orientation-4'],
-      projectIds: ['project-1', 'project-3'],
-      orientationExplanation:
-        'Цель поддерживает ускорение вывода результатов на рынок и повышает управляемость портфеля.',
-      createdBy: 'user',
-    },
-    {
-      id: 'goal-2',
-      specific: 'Снизить объём критического технического долга в ядре платформы',
-      achievable:
-        'Реализуемо за счёт отдельного проекта рефакторинга и фокусировки команды на ключевых узлах',
-      timeBound: 'До 1 декабря 2026 года',
-      priority: 'Высокий',
-      kpiName: 'Количество критических архитектурных замечаний',
-      kpiTarget: '25',
-      kpiUnit: '%',
-      orientationIds: ['orientation-2', 'orientation-3'],
-      projectIds: ['project-2'],
-      orientationExplanation:
-        'Цель направлена на повышение устойчивости архитектуры и снижение операционных рисков.',
-      createdBy: 'user',
-    },
-    {
-      id: 'goal-3',
-      specific: 'Сократить цикл вывода изменений в релиз',
-      achievable:
-        'Достижимо за счёт автоматизации поставки, оптимизации согласований и сокращения ручных операций',
-      timeBound: 'До 31 декабря 2026 года',
-      priority: 'Средний',
-      kpiName: 'Средняя длительность цикла релиза',
-      kpiTarget: '15',
-      kpiUnit: 'дней',
-      orientationIds: ['orientation-1', 'orientation-4'],
-      projectIds: ['project-1', 'project-3'],
-      orientationExplanation:
-        'Цель также направлена на ускорение вывода результатов на рынок и повышение управляемости портфеля.',
-      createdBy: 'user',
-    },
-  ]);
-
+export function GoalsScreen({ contextId }: { contextId: string | null }) {
+  const [goals, setGoals] = useState<FrontendGoal[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [suggestedGoals, setSuggestedGoals] = useState([]);
+  const [suggestedGoals, setSuggestedGoals] = useState<FrontendGoal[]>([]);
   const [isSuggestedGenerated, setIsSuggestedGenerated] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [ctxOrientations, setCtxOrientations] = useState<CtxOrientation[]>([]);
+  const [ctxProjects, setCtxProjects] = useState<CtxProject[]>([]);
+  const [addedSuggestionIds, setAddedSuggestionIds] = useState<Set<string>>(new Set());
 
-  const formRef = useRef(null);
-  const goalRefs = useRef({});
+  const formRef = useRef<HTMLElement | null>(null);
+  const goalRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Load real orientations and projects from context
+  useEffect(() => {
+    if (!contextId) {
+      setCtxOrientations([]);
+      setCtxProjects([]);
+      return;
+    }
+    contextApi.get(contextId).then((saved) => {
+      setCtxOrientations(
+        saved.orientations.map((o, i) => ({ id: `orientation-${i}`, title: o.vision }))
+      );
+      setCtxProjects(
+        saved.projects.map((p, i) => ({
+          id: `project-${i}`,
+          title: p.name,
+          description: p.description ?? '',
+        }))
+      );
+    }).catch(() => {});
+  }, [contextId]);
+
+  // Load saved goals on mount / contextId change
+  useEffect(() => {
+    if (!contextId) {
+      setGoals([]);
+      return;
+    }
+    setGoalsLoading(true);
+    goalsApi
+      .list(contextId)
+      .then(({ goals: data }) => setGoals(data.map(fromApi)))
+      .catch(() => {})
+      .finally(() => setGoalsLoading(false));
+  }, [contextId]);
+
+  // Reset transient state on contextId change
+  useEffect(() => {
+    setSubmitSuccess(false);
+    setSubmitError(null);
+    setSuggestedGoals([]);
+    setIsSuggestedGenerated(false);
+    setSuggestionsError(null);
+    setAddedSuggestionIds(new Set());
+  }, [contextId]);
 
   const orientationsMap = useMemo(() => {
-    return strategicOrientations.reduce((acc, item) => {
+    return ctxOrientations.reduce<Record<string, string>>((acc, item) => {
       acc[item.id] = item.title;
       return acc;
     }, {});
-  }, []);
+  }, [ctxOrientations]);
 
   const conflictsAndDuplicates = useMemo(() => {
-    const duplicates = [
-      {
-        id: 'duplicate-example-1',
-        type: 'Дублирование целей',
-        description:
-          'Цели "Сократить среднюю длительность цикла релиза по мультипроекту" и "Сократить цикл вывода изменений в релиз" частично совпадают по смыслу: обе направлены на ускорение релизного цикла и используют близкий KPI.',
-        variant: 'warning',
-      },
-    ];
-
-    const conflicts = [];
+    const duplicates: { id: string; type: string; description: string; variant: 'warning' | 'danger' }[] = [];
+    const conflicts: { id: string; type: string; description: string; variant: 'warning' | 'danger' }[] = [];
 
     for (let i = 0; i < goals.length; i += 1) {
       for (let j = i + 1; j < goals.length; j += 1) {
@@ -634,7 +716,7 @@ export function GoalsScreen() {
     return { duplicates, conflicts };
   }, [goals]);
 
-  function scrollToGoal(goalId) {
+  function scrollToGoal(goalId: string) {
     requestAnimationFrame(() => {
       goalRefs.current[goalId]?.scrollIntoView({
         behavior: 'smooth',
@@ -643,14 +725,13 @@ export function GoalsScreen() {
     });
   }
 
-  function updateFormField(field, value) {
+  function updateFormField(field: string, value: string | string[]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function toggleSelection(field, id) {
+  function toggleSelection(field: 'orientationIds' | 'projectIds', id: string) {
     setForm((prev) => {
       const exists = prev[field].includes(id);
-
       return {
         ...prev,
         [field]: exists ? prev[field].filter((item) => item !== id) : [...prev[field], id],
@@ -662,9 +743,23 @@ export function GoalsScreen() {
     setForm(emptyForm);
   }
 
-  function handleGenerateSuggestedGoals() {
-    setSuggestedGoals(initialSuggestedGoals);
-    setIsSuggestedGenerated(true);
+  async function handleGenerateSuggestedGoals() {
+    if (!contextId) return;
+    setSuggestionsLoading(true);
+    setSuggestionsError(null);
+    setSuggestedGoals([]);
+    setAddedSuggestionIds(new Set());
+    setIsSuggestedGenerated(false);
+    try {
+      const { ai_suggestions } = await goalsApi.suggestions(contextId);
+      setSuggestedGoals(ai_suggestions.map(fromApi));
+      setIsSuggestedGenerated(true);
+    } catch (e: unknown) {
+      const err = e as { detail?: string };
+      setSuggestionsError(err.detail ?? 'Ошибка при получении предложений');
+    } finally {
+      setSuggestionsLoading(false);
+    }
   }
 
   function handleSaveGoal() {
@@ -672,7 +767,7 @@ export function GoalsScreen() {
 
     const savedGoalId = `goal-${Date.now()}`;
 
-    const payload = {
+    const payload: FrontendGoal = {
       ...form,
       id: savedGoalId,
       createdBy: 'user',
@@ -683,28 +778,45 @@ export function GoalsScreen() {
     scrollToGoal(savedGoalId);
   }
 
-  function handleDeleteGoal(goalId) {
+  function handleDeleteGoal(goalId: string) {
     setGoals((prev) => prev.filter((item) => item.id !== goalId));
   }
 
-  function handleAddSuggestedGoal(goal) {
+  function handleAddSuggestedGoal(goal: FrontendGoal) {
+    if (addedSuggestionIds.has(goal.id)) return;
+
     const newGoalId = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    setGoals((prev) => [
-      {
-        ...goal,
-        id: newGoalId,
-        createdBy: 'ai',
-      },
-      ...prev,
-    ]);
-
-    setSuggestedGoals((prev) => prev.filter((item) => item.id !== goal.id));
-
+    setGoals((prev) => [{ ...goal, id: newGoalId, createdBy: 'ai' }, ...prev]);
+    setAddedSuggestionIds((prev) => new Set(prev).add(goal.id));
     scrollToGoal(newGoalId);
   }
 
+  async function handleSaveGoals() {
+    if (!contextId || goals.length === 0) return;
+    setSubmitLoading(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    try {
+      await goalsApi.submit(contextId, goals.map((g) => toApiPayload(g, ctxProjects)));
+      setSubmitSuccess(true);
+    } catch (e: unknown) {
+      const err = e as { detail?: string };
+      setSubmitError(err.detail ?? 'Ошибка при сохранении целей');
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
   const isFormComplete = isGoalComplete(form);
+
+  if (!contextId) {
+    return (
+      <main className="flex-1 flex items-center justify-center">
+        <p className="text-neutral-500 text-sm">Выберите мультипроект для работы с целями.</p>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 overflow-auto">
@@ -777,10 +889,10 @@ export function GoalsScreen() {
                   T (Time-bound) — срок достижения
                 </label>
                 <input
+                  type="date"
                   value={form.timeBound}
                   onChange={(e) => updateFormField('timeBound', e.target.value)}
                   className="w-full px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Например: До 31.12.2026"
                 />
 
                 <label className="block text-sm text-neutral-700 mt-4 mb-2">Приоритет</label>
@@ -804,10 +916,10 @@ export function GoalsScreen() {
               <SearchableCheckList
                 title="Стратегические ориентиры"
                 description="Выберите один или несколько ориентиров, которые поддерживает цель"
-                items={strategicOrientations}
+                items={ctxOrientations}
                 selectedIds={form.orientationIds}
                 onToggle={(id) => toggleSelection('orientationIds', id)}
-                getItemTitle={(item) => item.title}
+                getItemTitle={(item) => (item as CtxOrientation).title}
                 placeholder="Поиск по стратегическим ориентирам"
               />
 
@@ -827,43 +939,13 @@ export function GoalsScreen() {
               <SearchableCheckList
                 title="Связанные проекты"
                 description="Выберите проекты, которые вносят вклад в достижение цели"
-                items={projects}
+                items={ctxProjects}
                 selectedIds={form.projectIds}
                 onToggle={(id) => toggleSelection('projectIds', id)}
-                getItemTitle={(item) => item.title}
-                getItemDescription={(item) => item.description}
+                getItemTitle={(item) => (item as CtxProject).title}
+                getItemDescription={(item) => (item as CtxProject).description}
                 placeholder="Поиск по проектам"
               />
-            </div>
-
-            <div className="mt-6 p-4 bg-neutral-50 border border-neutral-200 rounded-lg">
-              <div className="flex items-center justify-between gap-4 mb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <h3 className="text-sm font-medium text-neutral-900">
-                    Проверка реалистичности цели
-                  </h3>
-                </div>
-
-                <span className="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
-                  В разработке
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="px-2 py-1 rounded text-xs bg-red-100 text-red-700">
-                  Низкая реалистичность
-                </span>
-                <span className="text-sm text-neutral-700">Оценка: 0%</span>
-              </div>
-
-              <div className="space-y-2">
-                {fixedRealismIssues.map((issue, index) => (
-                  <p key={index} className="text-sm text-neutral-700">
-                    • {issue}
-                  </p>
-                ))}
-              </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
@@ -890,7 +972,7 @@ export function GoalsScreen() {
 
             {!isFormComplete ? (
               <p className="text-sm text-red-600 mt-3">
-                Цель нельзя добавить, пока не заполнены все поля SMART, KPI 
+                Цель нельзя добавить, пока не заполнены все поля SMART, KPI
                 и стратегические ориентиры.
               </p>
             ) : null}
@@ -899,25 +981,33 @@ export function GoalsScreen() {
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
             <h2 className="text-neutral-900 mb-4">Список целей</h2>
 
-            <div className="space-y-3">
-              {goals.length ? (
-                goals.map((goal) => (
-                  <GoalCard
-                    key={goal.id}
-                    cardRef={(node) => {
-                      goalRefs.current[goal.id] = node;
-                    }}
-                    goal={goal}
-                    onDelete={handleDeleteGoal}
-                    orientationsMap={orientationsMap}
-                  />
-                ))
-              ) : (
-                <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                  <p className="text-sm text-neutral-700">Пока не добавлено ни одной цели.</p>
-                </div>
-              )}
-            </div>
+            {goalsLoading ? (
+              <div className="flex items-center gap-2 text-neutral-500 text-sm p-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Загрузка целей...
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {goals.length ? (
+                  goals.map((goal) => (
+                    <GoalCard
+                      key={goal.id}
+                      cardRef={(node) => {
+                        goalRefs.current[goal.id] = node;
+                      }}
+                      goal={goal}
+                      onDelete={handleDeleteGoal}
+                      orientationsMap={orientationsMap}
+                      projectsList={ctxProjects}
+                    />
+                  ))
+                ) : (
+                  <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+                    <p className="text-sm text-neutral-700">Пока не добавлено ни одной цели.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
@@ -929,31 +1019,35 @@ export function GoalsScreen() {
 
               <button
                 onClick={handleGenerateSuggestedGoals}
-                className="px-3 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm flex items-center gap-2"
+                disabled={suggestionsLoading}
+                className="px-3 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors text-sm flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Sparkles className="w-4 h-4" />
-                Предложить цели
+                {suggestionsLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                {suggestionsLoading ? 'Генерация...' : 'Предложить цели'}
               </button>
             </div>
 
+            {suggestionsError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                {suggestionsError}
+              </div>
+            )}
+
             {isSuggestedGenerated ? (
               <div className="space-y-3">
-                {suggestedGoals.length ? (
-                  suggestedGoals.map((goal) => (
-                    <SuggestedGoalCard
-                      key={goal.id}
-                      goal={goal}
-                      onAdd={handleAddSuggestedGoal}
-                      orientationsMap={orientationsMap}
-                    />
-                  ))
-                ) : (
-                  <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-                    <p className="text-sm text-neutral-700">
-                      Все предложенные ИИ цели уже рассмотрены или добавлены.
-                    </p>
-                  </div>
-                )}
+                {suggestedGoals.map((goal) => (
+                  <SuggestedGoalCard
+                    key={goal.id}
+                    goal={goal}
+                    onAdd={handleAddSuggestedGoal}
+                    orientationsMap={orientationsMap}
+                    isAdded={addedSuggestionIds.has(goal.id)}
+                  />
+                ))}
               </div>
             ) : (
               <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
@@ -1030,9 +1124,30 @@ export function GoalsScreen() {
             </div>
           </section>
 
-          <button className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            <span>Перейти к альтернативам</span>
+          {submitSuccess && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Цели успешно сохранены. Этап «Цели» отмечен как выполненный.
+            </div>
+          )}
+
+          {submitError && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              {submitError}
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveGoals}
+            disabled={submitLoading || goals.length === 0}
+            className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {submitLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5" />
+            )}
+            <span>{submitLoading ? 'Сохранение...' : 'Сохранить цели'}</span>
           </button>
         </div>
       </div>

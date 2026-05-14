@@ -17,8 +17,8 @@ async def get_home(ctx: dict = Depends(get_context_for_user)):
         {"contextId": context_id, "context": "USER_CREATED"}
     ).to_list(length=50)
 
-    key_risks = analysis.get("analysis_risks", []) if analysis else []
-    resource_analysis = analysis.get("resource_analysis", []) if analysis else []
+    key_risks = analysis.get("risks", []) if analysis else []
+    resource_analysis = analysis.get("resourceAnalysis", []) if analysis else []
 
     strategic_goals = [
         {

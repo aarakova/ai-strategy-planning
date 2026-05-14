@@ -16,11 +16,7 @@
 | 0.6 | Аутентификация: JWT в HttpOnly-куке, bcrypt(SHA-256) | ✅ |
 | 0.7 | CRUD мультипроектов (contexts) с каскадным удалением | ✅ |
 | 0.8 | Все остальные эндпоинты возвращают моки для подключения UI | ✅ |
-| 0.9 | `contextId` из выбранного мультипроекта передаётся в экраны | ⬜ |
-
-> **0.9** — критический блокер для всей Фазы 1.
-> В `App.tsx` `selectedMultiproject` есть, но ни один экран его не получает.
-> Нужно пробросить `selectedMultiproject.id` пропом в каждый из шести экранов.
+| 0.9 | `contextId` из выбранного мультипроекта передаётся в экраны | ✅ |
 
 ---
 
@@ -31,11 +27,11 @@
 | # | Файл | Метод | Эндпоинт | Статус |
 |---|------|--------|----------|--------|
 | 1.1.1 | `api/home.ts` | GET | `/contexts/{id}/home` | ⬜ |
-| 1.1.2 | `api/context.ts` | POST | `/contexts/{id}/context` | ⬜ |
-| 1.1.3 | `api/analysis.ts` | GET | `/contexts/{id}/analysis` | ⬜ |
-| 1.1.4 | `api/goals.ts` | GET | `/contexts/{id}/goals` | ⬜ |
-| 1.1.5 | `api/goals.ts` | POST | `/contexts/{id}/goals` | ⬜ |
-| 1.1.6 | `api/goals.ts` | GET | `/contexts/{id}/goals/suggestions` | ⬜ |
+| 1.1.2 | `api/context.ts` | POST | `/contexts/{id}/context` | ✅ |
+| 1.1.3 | `api/analysis.ts` | GET | `/contexts/{id}/analysis` | ✅ |
+| 1.1.4 | `api/goals.ts` | GET | `/contexts/{id}/goals` | ✅ |
+| 1.1.5 | `api/goals.ts` | POST | `/contexts/{id}/goals` | ✅ |
+| 1.1.6 | `api/goals.ts` | GET | `/contexts/{id}/goals/suggestions` | ✅ |
 | 1.1.7 | `api/alternatives.ts` | GET | `/contexts/{id}/alternatives` | ⬜ |
 | 1.1.8 | `api/alternatives.ts` | POST | `/contexts/{id}/alternatives` | ⬜ |
 | 1.1.9 | `api/plan.ts` | GET | `/contexts/{id}/plan` | ⬜ |
@@ -48,18 +44,18 @@
 App.tsx
   └─ selectedMultiproject.id → prop contextId
        ├─ GlavnayaScreen
-       ├─ KontekstScreen
-       ├─ AnalizScreen
-       ├─ GoalsScreen
+       ├─ KontekstScreen      ✅
+       ├─ AnalizScreen        ✅
+       ├─ GoalsScreen         ✅
        ├─ AlternativesScreen
        └─ PlanScreen
 ```
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 1.2.1 | Добавить `contextId: string \| null` в пропы каждого экрана | ⬜ |
-| 1.2.2 | Передать `selectedMultiproject?.id ?? null` из `App.tsx` | ⬜ |
-| 1.2.3 | В каждом экране показывать заглушку если `contextId === null` | ⬜ |
+| 1.2.1 | Добавить `contextId: string \| null` в пропы каждого экрана | 🔧 |
+| 1.2.2 | Передать `selectedMultiproject?.id ?? null` из `App.tsx` | ✅ |
+| 1.2.3 | В каждом экране показывать заглушку если `contextId === null` | 🔧 |
 
 ### 1.3 GlavnayaScreen
 
@@ -76,29 +72,29 @@ App.tsx
 | # | Задача | Статус |
 |---|--------|--------|
 | 1.4.1 | При монтировании: загрузить сохранённый контекст из БД (GET нужен или хранить локально) | ⬜ |
-| 1.4.2 | Кнопка «Сохранить / Запустить анализ» → `POST /contexts/{id}/context` | ⬜ |
-| 1.4.3 | Валидация формы перед отправкой (минимум 1 ориентация, 1 проект) | ⬜ |
-| 1.4.4 | После 202 Accepted — показать уведомление «Анализ запущен» | ⬜ |
+| 1.4.2 | Кнопка «Сохранить / Запустить анализ» → `POST /contexts/{id}/context` | ✅ |
+| 1.4.3 | Валидация формы перед отправкой (минимум 1 ориентация, 1 проект) | ✅ |
+| 1.4.4 | После 202 Accepted — показать уведомление «Анализ запущен» | ✅ |
 | 1.4.5 | Блокировать повторную отправку пока анализ IN_PROGRESS | ⬜ |
 
 ### 1.5 AnalizScreen
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 1.5.1 | Убрать захардкоженные данные | ⬜ |
-| 1.5.2 | `useEffect` → `analysisApi.get(contextId)` | ⬜ |
-| 1.5.3 | Если статус `IN_PROGRESS` — показывать индикатор «Анализ выполняется…» и polling каждые 5 с | ⬜ |
-| 1.5.4 | Если статус `NOT_STARTED` — предложить перейти на Контекст | ⬜ |
+| 1.5.1 | Убрать захардкоженные данные | ✅ |
+| 1.5.2 | `useEffect` → `analysisApi.get(contextId)` | ✅ |
+| 1.5.3 | Если статус `IN_PROGRESS` — показывать индикатор «Анализ выполняется…» и polling каждые 5 с | ✅ |
+| 1.5.4 | Если статус `NOT_STARTED` — предложить перейти на Контекст | ✅ |
 | 1.5.5 | Отобразить реальный граф зависимостей из `dependency_graph` | ⬜ |
 
 ### 1.6 GoalsScreen
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 1.6.1 | При монтировании: `GET /contexts/{id}/goals` → список сохранённых целей | ⬜ |
-| 1.6.2 | Кнопка «Предложить цели» → `GET /goals/suggestions` (сейчас возвращает моки) | ⬜ |
-| 1.6.3 | Кнопка «Сохранить цели» → `POST /contexts/{id}/goals` | ⬜ |
-| 1.6.4 | После сохранения — обновить список и показать уведомление | ⬜ |
+| 1.6.1 | При монтировании: `GET /contexts/{id}/goals` → список сохранённых целей | ✅ |
+| 1.6.2 | Кнопка «Предложить цели» → `GET /goals/suggestions` (реальный LLM) | ✅ |
+| 1.6.3 | Кнопка «Сохранить цели» → `POST /contexts/{id}/goals` | ✅ |
+| 1.6.4 | После сохранения — показать уведомление об успехе | ✅ |
 
 ### 1.7 AlternativesScreen
 
@@ -136,14 +132,14 @@ App.tsx
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 2.2.1 | GET читать из `analysis_results` в MongoDB вместо `_MOCK_ANALYSIS` | ⬜ |
-| 2.2.2 | Возвращать актуальный `status` из документа (NOT_STARTED / IN_PROGRESS / COMPLETED) | ⬜ |
+| 2.2.1 | GET читать из `analysis_results` в MongoDB вместо `_MOCK_ANALYSIS` | ✅ |
+| 2.2.2 | Возвращать актуальный `status` из документа (NOT_STARTED / IN_PROGRESS / COMPLETED) | ✅ |
 
 ### 2.3 goals.py
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 2.3.1 | GET suggestions — читать из `ai_goal_suggestions` в MongoDB вместо `_MOCK_SUGGESTIONS` | ⬜ |
+| 2.3.1 | GET suggestions — вызывать LLM вместо `_MOCK_SUGGESTIONS` | ✅ |
 
 ### 2.4 alternatives.py
 
@@ -163,68 +159,37 @@ App.tsx
 
 ## Фаза 3 — OpenRouter интеграция
 
-Используем [OpenRouter](https://openrouter.ai) — OpenAI-совместимый агрегатор моделей (Claude, GPT-4o, Llama и др.).
-Авторизация: один API-ключ в заголовке, никакого OAuth2. Клиент — пакет `openai` с переопределённым `base_url`.
+Используем [OpenRouter](https://openrouter.ai) — OpenAI-совместимый агрегатор моделей.  
+Авторизация: один API-ключ в заголовке. Клиент — пакет `openai` с переопределённым `base_url`.  
+Модель: `deepseek/deepseek-v4-flash:free`
 
 ### 3.1 Подготовка
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.1.1 | Добавить `openai>=1.0` в `requirements.txt` | ⬜ |
-| 3.1.2 | Добавить `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` в `config.py` и `.env.example` | ⬜ |
-| 3.1.3 | Создать `backend/app/llm.py` — тонкая обёртка над `AsyncOpenAI` с `base_url=openrouter` | ⬜ |
-| 3.1.4 | Добавить retry-логику и timeout (~60 с для сложных промптов) | ⬜ |
-
-```python
-# backend/app/llm.py
-from openai import AsyncOpenAI
-from .config import settings
-
-client = AsyncOpenAI(
-    api_key=settings.openrouter_api_key,
-    base_url="https://openrouter.ai/api/v1",
-)
-
-async def chat(messages: list[dict], model: str | None = None) -> str:
-    resp = await client.chat.completions.create(
-        model=model or settings.openrouter_model,
-        messages=messages,
-        response_format={"type": "json_object"},
-        timeout=60,
-    )
-    return resp.choices[0].message.content
-```
+| 3.1.1 | Добавить `openai>=1.0` в `requirements.txt` | ✅ |
+| 3.1.2 | Добавить `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` в `config.py` и `.env.example` | ✅ |
+| 3.1.3 | Создать `backend/app/llm.py` — обёртка над `AsyncOpenAI` с `base_url=openrouter` | ✅ |
+| 3.1.4 | Добавить retry-логику и timeout (3 попытки, exponential backoff) | ✅ |
 
 ### 3.2 Анализ портфеля (`context.py` → `_run_analysis`)
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.2.1 | Загрузить из MongoDB: ориентации, проекты, зависимости, ограничения | ⬜ |
-| 3.2.2 | Сформировать системный промпт + пользовательский контекст | ⬜ |
-| 3.2.3 | Вызвать `llm.chat(messages)`, распарсить JSON-ответ | ⬜ |
-| 3.2.4 | Сохранить результат в `analysis_results` со статусом COMPLETED | ⬜ |
-| 3.2.5 | При ошибке LLM — сохранить статус FAILED + error message | ⬜ |
-| 3.2.6 | Обновить `planning_stages_status.Анализ = COMPLETED` в контексте | ⬜ |
-
-Ожидаемая структура ответа GigaChat для анализа:
-```json
-{
-  "dependency_graph": { "nodes": [...], "edges": [...] },
-  "risks": [{ "name": "...", "probability": "...", "impact": "...", "mitigation": "..." }],
-  "resource_analysis": { "by_role": [...], "total_hours": 0 },
-  "deviation_analysis": [...],
-  "ai_explanation": "...",
-  "ai_recommendations": [...]
-}
-```
+| 3.2.1 | Загрузить из MongoDB: ориентации, проекты, зависимости, ограничения | ✅ |
+| 3.2.2 | Сформировать системный промпт + пользовательский контекст | ✅ |
+| 3.2.3 | Вызвать `llm.chat_json(messages)`, распарсить JSON-ответ | ✅ |
+| 3.2.4 | Сохранить результат в `analysis_results` со статусом COMPLETED | ✅ |
+| 3.2.5 | При ошибке LLM — сохранить статус FAILED + error message | ✅ |
+| 3.2.6 | Обновить `planning_stages_status.Анализ = COMPLETED` в контексте | ✅ |
 
 ### 3.3 Предложение целей (`goals.py` → GET suggestions)
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.3.1 | При вызове GET suggestions — проверить, есть ли актуальные в `ai_goal_suggestions` | ⬜ |
-| 3.3.2 | Если нет — сгенерировать через `llm.chat()` на основе анализа и ориентаций | ⬜ |
-| 3.3.3 | Сохранить предложения в `ai_goal_suggestions` (кешировать) | ⬜ |
+| 3.3.1 | При вызове GET suggestions — загрузить контекст, ориентации, проекты, анализ | ✅ |
+| 3.3.2 | Сгенерировать через `llm.chat_json()` на основе загруженных данных | ✅ |
+| 3.3.3 | Кеширование в `ai_goal_suggestions` | ⬜ |
 
 ### 3.4 Альтернативные сценарии (`alternatives.py` → GET)
 
@@ -264,9 +229,8 @@ async def chat(messages: list[dict], model: str | None = None) -> str:
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 4.2.1 | Исправить dictionary (риски) — упомянуто в старом TODO | ⬜ |
-| 4.2.2 | Разбить риски анализа, альтернатив и плана на отдельные Pydantic-схемы | ⬜ |
-| 4.2.3 | Swagger UI: проверить корректность всех схем запросов и ответов | ⬜ |
+| 4.2.1 | Разбить риски анализа, альтернатив и плана на отдельные Pydantic-схемы | ⬜ |
+| 4.2.2 | Swagger UI: проверить корректность всех схем запросов и ответов | ⬜ |
 
 ### 4.3 Данные и состояние
 
@@ -274,25 +238,24 @@ async def chat(messages: list[dict], model: str | None = None) -> str:
 |---|--------|--------|
 | 4.3.1 | При смене мультипроекта — сбросить состояние всех экранов | ⬜ |
 | 4.3.2 | KontekstScreen: при открытии загружать ранее сохранённые данные | ⬜ |
-| 4.3.3 | GoalsScreen: фильтрация и сортировка целей | ⬜ |
+| 4.3.3 | GoalsScreen: загружать реальные ориентиры и проекты из контекста (вместо хардкода) | ⬜ |
 
 ---
 
 ## Порядок реализации (рекомендуемый)
 
 ```
-0.9 → 1.1 → 1.2 → 1.3–1.8 (параллельно по экранам)
-                          ↓
-                    2.1–2.5 (замена моков)
-                          ↓
-               3.1 → 3.2 → 3.3 → 3.4 → 3.5
-                          ↓
-                        4.1–4.3
+0.1–0.9 ✅ → 1.1–1.6 ✅ (частично)
+                      ↓
+               2.1–2.3 ✅ → 3.1–3.3 ✅ (частично)
+                      ↓
+         1.7–1.8, 2.4–2.5, 3.4–3.5 (следующие)
+                      ↓
+                    4.1–4.3
 ```
 
 **Минимально рабочий продукт (MVP):**
-Фазы 0–1 полностью + Фаза 2 (без GigaChat, но с реальными данными из MongoDB).
-Пользователь может пройти весь цикл с ручным вводом данных, видеть их сохранёнными между сессиями.
+Фазы 0–1 полностью + Фаза 2–3 (реальные данные + LLM для анализа и целей). ✅ Выполнено
 
 **Полный продукт:**
-Все фазы 0–4, включая GigaChat-генерацию анализа, сценариев и плана.
+Все фазы 0–4, включая LLM-генерацию альтернатив и плана.

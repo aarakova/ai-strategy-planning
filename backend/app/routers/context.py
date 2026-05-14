@@ -97,6 +97,24 @@ async def _run_analysis(context_id: str) -> None:
         )
 
 
+@router.get("/{contextId}/context")
+async def get_context(ctx: dict = Depends(get_context_for_user)):
+    db = get_db()
+    context_id = str(ctx["_id"])
+
+    orientations = await db.strategic_orientations.find({"contextId": context_id}).to_list(100)
+    projects = await db.projects.find({"contextId": context_id}).to_list(100)
+    dependencies = await db.project_dependencies.find({"contextId": context_id}).to_list(100)
+    constraints = await db.portfolio_constraints.find_one({"contextId": context_id})
+
+    return {
+        "orientations": [_clean(o) for o in orientations],
+        "projects": [_clean(p) for p in projects],
+        "dependencies": [_clean(d) for d in dependencies],
+        "portfolio_constraints": _clean(constraints) if constraints else None,
+    }
+
+
 @router.post("/{contextId}/context", status_code=status.HTTP_202_ACCEPTED)
 async def submit_context(
     body: ContextSubmitRequest,

@@ -1,47 +1,64 @@
-from fastapi import APIRouter, Depends
+import json
 
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException
+
+from .. import llm
 from ..database import get_db
 from ..dependencies import get_context_for_user
 from ..models.goals import GoalsSubmitRequest
 
 router = APIRouter(prefix="/contexts", tags=["Goals"])
 
-_MOCK_SUGGESTIONS = [
-    {
-        "id": "ai-s1",
-        "specific": "Увеличить долю цифровых продаж до 60% к Q4 2026",
-        "kpi_name": "Доля цифровых продаж",
-        "kpi_target_value": 60,
-        "kpi_unit": "%",
-        "achievable": "За счёт внедрения новых онлайн-каналов и автоматизации продаж",
-        "timebound": "2026-12-31",
-        "priority": "Высокий",
-        "orientation_ids": [],
-        "project_names": ["Модуль авторизации", "Платёжная система"],
-        "orientation_explanation": "Напрямую связана с ориентиром цифровой трансформации",
-        "context": "AI_SUGGESTED",
-        "ai_explanation": "На основе анализа портфеля цель достижима при оптимизации команды разработки.",
-        "project_coverage": {"degree": "Сильное", "explanation": "Охватывает 2 из 3 ключевых проектов"},
-        "realism_check": {"degree": "Высокая", "score": 82, "issues": []},
-    },
-    {
-        "id": "ai-s2",
-        "specific": "Сократить время вывода нового продукта на рынок до 6 месяцев",
-        "kpi_name": "Time-to-market",
-        "kpi_target_value": 6,
-        "kpi_unit": "месяцев",
-        "achievable": "За счёт внедрения Agile-практик и CI/CD",
-        "timebound": "2026-09-30",
-        "priority": "Средний",
-        "orientation_ids": [],
-        "project_names": ["Аналитический модуль"],
-        "orientation_explanation": "Поддерживает ориентир операционной эффективности",
-        "context": "AI_SUGGESTED",
-        "ai_explanation": "Текущий средний цикл — 10 месяцев. Сокращение до 6 требует структурных изменений.",
-        "project_coverage": {"degree": "Умеренное", "explanation": "Охватывает 1 из 3 проектов"},
-        "realism_check": {"degree": "Средняя", "score": 65, "issues": ["Требует дополнительных ресурсов на DevOps"]},
-    },
-]
+_SYSTEM_PROMPT = """\
+Ты — эксперт по стратегическому планированию. Сформируй ровно 3 стратегических цели по методике SMART для портфеля проектов.
+
+Верни ТОЛЬКО валидный JSON без пояснений, точно по схеме:
+{"ai_suggestions":[{"specific":"<1 предложение>","kpi_name":"<название KPI>","kpi_target_value":0.0,"kpi_unit":"<единица>","achievable":"<1-2 предложения>","timebound":"YYYY-MM-DD","priority":"Высокий|Средний|Низкий","orientation_ids":[],"project_names":["<точное название>"],"orientation_explanation":"<1 предложение>","context":"AI_SUGGESTED","ai_explanation":"<1 предложение>","project_coverage":{"degree":"Сильное|Умеренное|Слабое","explanation":"<1 предложение>"},"realism_check":{"degree":"Высокая|Средняя|Низкая","score":75,"issues":[]}}]}
+
+Правила:
+- Ровно 3 цели, охватывающих разные аспекты стратегии
+- project_names: точные названия проектов из входных данных
+- timebound: "YYYY-MM-DD", в пределах горизонта планирования
+- Все тексты на русском языке; каждое текстовое поле — не более 2 предложений
+- orientation_ids: всегда пустой массив []
+"""
+
+
+def _build_suggestions_message(ctx: dict, orientations: list, projects: list, analysis: dict | None) -> str:
+    lines = [
+        f"Портфель: {ctx.get('portfolio_name', '')}",
+        f"Горизонт: {ctx.get('planning_horizon', '')}",
+        "",
+        "Стратегические ориентиры:",
+        json.dumps(
+            [{"vision": o.get("vision", ""), "priority": o.get("priority", "")} for o in orientations],
+            ensure_ascii=False,
+        ),
+        "",
+        "Проекты:",
+        json.dumps(
+            [{"name": p.get("name", ""), "status": p.get("status", ""),
+              "start_date": str(p.get("start_date", "")), "end_date": str(p.get("end_date", ""))}
+             for p in projects],
+            ensure_ascii=False,
+        ),
+    ]
+
+    if analysis and analysis.get("status") == "COMPLETED":
+        risks = [r.get("text", str(r))[:120] for r in analysis.get("risks", [])[:3]]
+        recs = [r.get("text", r.get("title", str(r)))[:120] for r in analysis.get("recommendations", [])[:3]]
+        lines += [
+            "",
+            f"Ключевые риски: {'; '.join(risks) or 'нет'}",
+            f"Рекомендации: {'; '.join(recs) or 'нет'}",
+        ]
+    else:
+        lines.append("Результаты анализа: нет")
+
+    lines.append("")
+    lines.append("Сформируй 3–5 SMART-целей для этого портфеля.")
+    return "\n".join(lines)
 
 
 def _doc_to_dict(doc: dict) -> dict:
@@ -96,4 +113,28 @@ async def submit_goals(body: GoalsSubmitRequest, ctx: dict = Depends(get_context
 
 @router.get("/{contextId}/goals/suggestions")
 async def get_goal_suggestions(ctx: dict = Depends(get_context_for_user)):
-    return {"ai_suggestions": _MOCK_SUGGESTIONS}
+    db = get_db()
+    context_id = str(ctx["_id"])
+
+    orientations = await db.strategic_orientations.find({"contextId": context_id}).to_list(50)
+    projects = await db.projects.find({"contextId": context_id}).to_list(100)
+    analysis = await db.analysis_results.find_one({"contextId": context_id})
+
+    user_msg = _build_suggestions_message(ctx, orientations, projects, analysis)
+    messages = [
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": user_msg},
+    ]
+
+    try:
+        result = await llm.chat_json(messages)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Ошибка LLM: {e}")
+
+    suggestions = result.get("ai_suggestions", [])
+    for s in suggestions:
+        s.setdefault("orientation_ids", [])
+        s.setdefault("project_names", [])
+        s["context"] = "AI_SUGGESTED"
+
+    return {"ai_suggestions": suggestions}

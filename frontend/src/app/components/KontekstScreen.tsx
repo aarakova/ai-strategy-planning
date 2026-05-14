@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Upload, Target, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Upload, Target, Plus, Trash2, Loader2 } from 'lucide-react';
 import { contextApi } from '../api/context';
 import type { ContextPayload } from '../api/context';
 
@@ -114,6 +114,64 @@ export function KontekstScreen({ contextId }: { contextId: string | null }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [loadingContext, setLoadingContext] = useState(false);
+
+  // Load previously saved context on mount / contextId change
+  useEffect(() => {
+    if (!contextId) return;
+    setLoadingContext(true);
+    contextApi
+      .get(contextId)
+      .then((saved) => {
+        if (saved.orientations.length > 0) {
+          setGuidelines(
+            saved.orientations.map((o) => ({
+              id: generateId(),
+              vision: o.vision,
+              priority: o.priority as Priority,
+            })),
+          );
+        }
+        if (saved.projects.length > 0) {
+          const loadedProjects: Project[] = saved.projects.map((p) => ({
+            id: generateId(),
+            name: p.name,
+            status: p.status as ProjectStatus,
+            startDate: p.start_date,
+            endDate: p.end_date,
+            analysts: String(p.workload.analysts),
+            developers: String(p.workload.developers),
+            testers: String(p.workload.testers),
+            constraints: p.constraints ?? '',
+            deviations: p.deviations ?? '',
+            description: p.description ?? '',
+          }));
+          setProjects(loadedProjects);
+
+          if (saved.dependencies.length > 0) {
+            const nameToId = Object.fromEntries(loadedProjects.map((p) => [p.name, p.id]));
+            setDependencyRelations(
+              saved.dependencies.map((d) => ({
+                id: generateId(),
+                baseProjectId: nameToId[d.main_project_name] ?? '',
+                dependentProjectId: nameToId[d.dependent_project_name] ?? '',
+              })).filter((d) => d.baseProjectId && d.dependentProjectId),
+            );
+          }
+        }
+        if (saved.portfolio_constraints) {
+          const c = saved.portfolio_constraints;
+          setPortfolioConstraints({
+            analystsLimit: String(c.analysts_limit),
+            developersLimit: String(c.developers_limit),
+            testersLimit: String(c.testers_limit),
+            criticalDeadline: c.critical_deadline,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingContext(false));
+  }, [contextId]);
 
   const buildPayload = (): ContextPayload => {
     const nameById = Object.fromEntries(projects.map((p) => [p.id, p.name]));
@@ -353,10 +411,21 @@ export function KontekstScreen({ contextId }: { contextId: string | null }) {
     }
   };
 
+  if (!contextId) {
+    return (
+      <main className="flex-1 flex items-center justify-center">
+        <p className="text-neutral-500 text-sm">Выберите мультипроект для работы с контекстом.</p>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 overflow-auto">
       <div className="max-w-6xl mx-auto p-8">
-        <h1 className="text-neutral-900 mb-2">Контекст</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-neutral-900">Контекст</h1>
+          {loadingContext && <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />}
+        </div>
         <p className="text-sm text-neutral-500 mb-8">
           Определите исходные данные для стратегического планирования мультипроекта
         </p>
