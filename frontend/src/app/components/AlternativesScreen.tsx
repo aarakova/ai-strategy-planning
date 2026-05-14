@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   GitBranch,
   Sparkles,
@@ -13,7 +13,10 @@ import {
   Users,
   ListChecks,
   AlertOctagon,
+  Loader2,
 } from 'lucide-react';
+
+import { alternativesApi, type ApiScenario, type AlternativesData } from '../api/alternatives';
 
 type RoleResources = {
   analysts: number;
@@ -66,13 +69,9 @@ function getIntegralScore(
   resourceFeasibility: number,
 ) {
   const riskPenalty = Math.min(riskCount * 10, 100);
-
-  const score =
-    (100 - riskPenalty) * 0.35 +
-    constraintsCompliance * 0.35 +
-    resourceFeasibility * 0.3;
-
-  return Math.round(score);
+  return Math.round(
+    (100 - riskPenalty) * 0.35 + constraintsCompliance * 0.35 + resourceFeasibility * 0.3,
+  );
 }
 
 function buildScenarioStatuses(scenarios: Scenario[]): ScenarioWithScore[] {
@@ -86,38 +85,23 @@ function buildScenarioStatuses(scenarios: Scenario[]): ScenarioWithScore[] {
     status: 'Требует внимания' as const,
   }));
 
-  const sortedScores = [...withScore]
-    .map((item) => item.integralScore)
-    .sort((a, b) => b - a);
-
-  const highestScore = sortedScores[0];
+  const highestScore = Math.max(...withScore.map((s) => s.integralScore));
   const attentionThreshold = 75;
 
   return withScore.map((scenario) => {
     let status: ScenarioWithScore['status'] = 'Требует внимания';
-
     if (scenario.integralScore === highestScore) {
       status = 'Рекомендуемый';
     } else if (scenario.integralScore >= attentionThreshold) {
       status = 'Допустимый';
     }
-
-    return {
-      ...scenario,
-      status,
-    };
+    return { ...scenario, status };
   });
 }
 
 function getScenarioStatusClass(status: ScenarioWithScore['status']) {
-  if (status === 'Рекомендуемый') {
-    return 'bg-emerald-100 text-emerald-700';
-  }
-
-  if (status === 'Допустимый') {
-    return 'bg-blue-100 text-blue-700';
-  }
-
+  if (status === 'Рекомендуемый') return 'bg-emerald-100 text-emerald-700';
+  if (status === 'Допустимый') return 'bg-blue-100 text-blue-700';
   return 'bg-amber-100 text-amber-700';
 }
 
@@ -141,358 +125,229 @@ function formatNumber(value: number) {
   return value.toLocaleString('ru-RU');
 }
 
-export function AlternativesScreen() {
-  const scenarios = useMemo<Scenario[]>(
-    () => [
-      {
-        id: 'balanced',
-        title: 'Сценарий 1',
-        subtitle: 'Сбалансированный',
-        description:
-          'Сценарий обеспечивает компромисс между уровнем риска, ресурсной реализуемостью и соблюдением ограничений. Полный состав портфеля сохраняется, а последовательность работ выстраивается так, чтобы сохранить управляемость реализации.',
-        aiInterpretation:
-          'ИИ-интерпретация: сценарий подходит как базовый вариант для дальнейшего планирования. Он обеспечивает устойчивое выполнение портфеля, умеренную параллельность работ и контролируемый уровень рисков.',
-        strengths: [
-          'Хороший баланс между скоростью и устойчивостью реализации',
-          'Ресурсная потребность остаётся управляемой',
-          'Допустимый уровень рисков при сохранении параллельности',
-        ],
-        weaknesses: [
-          'Не даёт максимального ускорения',
-          'Требует контроля нагрузки разработчиков в отдельных периодах',
-        ],
-        totalDuration: '8 мес',
-        riskCount: 3,
-        constraintsCompliance: 92,
-        resourceFeasibility: 86,
-        totalResources: {
-          analysts: 960,
-          developers: 2240,
-          testers: 1120,
-        },
-        keyRisks: [
-          {
-            text: 'Сдвиг зависимого проекта при отклонении сроков модернизации CI/CD',
-            level: 'high',
-            impact: 'Высокий',
-          },
-          {
-            text: 'Задержка аналитической витрины из-за позднего поступления входных данных',
-            level: 'medium',
-            impact: 'Средний',
-          },
-          {
-            text: 'Повышенная нагрузка на команду разработки в период архитектурных изменений',
-            level: 'medium',
-            impact: 'Средний',
-          },
-        ],
-        constraintsOk: [
-          'Соблюдены ключевые зависимости между проектами',
-          'Не превышен общий лимит по аналитикам',
-          'Общий срок реализации укладывается в горизонт планирования',
-          'Последовательность работ соответствует зависимостям между проектами',
-        ],
-        constraintsIssues: [
-          'Требуется дополнительный контроль загрузки разработчиков в середине сценария',
-        ],
-        projects: [
-          {
-            id: 'project-1',
-            title: 'Модернизация CI/CD',
-            dependencyNote: 'Базовый проект сценария, выполняется первым',
-            period: 'Май 2026 — Июль 2026',
-            resources: { analysts: 160, developers: 640, testers: 160 },
-            description:
-              'Проект запускается первым, так как формирует инфраструктурную основу для более управляемой реализации последующих инициатив.',
-          },
-          {
-            id: 'project-2',
-            title: 'Система управления требованиями',
-            dependencyNote: 'Идёт параллельно с проектом 3',
-            period: 'Май 2026 — Август 2026',
-            resources: { analysts: 320, developers: 480, testers: 160 },
-            description:
-              'Проект формирует основу для повышения прозрачности портфеля и качества дальнейшего планирования.',
-          },
-          {
-            id: 'project-3',
-            title: 'Рефакторинг ядра платформы',
-            dependencyNote: 'Зависит от проекта 1, идёт параллельно с проектом 2',
-            period: 'Август 2026 — Ноябрь 2026',
-            resources: { analysts: 160, developers: 800, testers: 320 },
-            description:
-              'Проект стартует после завершения ключевых работ по CI/CD, что позволяет ускорить реализацию без существенного роста риска.',
-          },
-          {
-            id: 'project-4',
-            title: 'Портфельная аналитическая витрина',
-            dependencyNote: 'Зависит от проекта 2',
-            period: 'Сентябрь 2026 — Декабрь 2026',
-            resources: { analysts: 320, developers: 320, testers: 480 },
-            description:
-              'Проект запускается после подготовки процессов управления требованиями, чтобы витрина опиралась на более структурированные данные.',
-          },
-        ],
-      },
-      {
-        id: 'conservative',
-        title: 'Сценарий 2',
-        subtitle: 'Консервативный',
-        description:
-          'Сценарий ориентирован на минимизацию риска и повышение устойчивости реализации. Все проекты портфеля выполняются в более осторожной последовательности с уменьшением числа параллельных работ.',
-        aiInterpretation:
-          'ИИ-интерпретация: сценарий обеспечивает лучшее соблюдение ограничений и снижает вероятность каскадных отклонений, но увеличивает общий срок реализации портфеля.',
-        strengths: [
-          'Наиболее устойчивый вариант реализации',
-          'Лучшее соблюдение ограничений и зависимостей',
-          'Низкая вероятность каскадных отклонений по срокам',
-        ],
-        weaknesses: [
-          'Наиболее длительный общий срок реализации',
-          'Более медленное достижение результатов по портфелю',
-        ],
-        totalDuration: '9,5 мес',
-        riskCount: 2,
-        constraintsCompliance: 97,
-        resourceFeasibility: 94,
-        totalResources: {
-          analysts: 800,
-          developers: 1920,
-          testers: 960,
-        },
-        keyRisks: [
-          {
-            text: 'Потеря темпа реализации портфеля',
-            level: 'medium',
-            impact: 'Средний',
-          },
-          {
-            text: 'Смещение части эффектов за пределы целевого горизонта',
-            level: 'high',
-            impact: 'Высокий',
-          },
-        ],
-        constraintsOk: [
-          'Соблюдены все ключевые зависимости между проектами',
-          'Ресурсная потребность распределена равномерно',
-          'Соблюдены ограничения по последовательности выполнения',
-          'Минимизировано число параллельных работ в критичных периодах',
-        ],
-        constraintsIssues: ['Сценарий приближается к верхней границе допустимого срока реализации'],
-        projects: [
-          {
-            id: 'project-1',
-            title: 'Система управления требованиями',
-            dependencyNote: 'Выполняется первой, формирует основу для следующих проектов',
-            period: 'Май 2026 — Август 2026',
-            resources: { analysts: 320, developers: 480, testers: 160 },
-            description:
-              'Проект открывает сценарий и снижает вероятность ошибок при последующем выполнении остальных инициатив.',
-          },
-          {
-            id: 'project-2',
-            title: 'Модернизация CI/CD',
-            dependencyNote: 'Зависит от проекта 1',
-            period: 'Август 2026 — Октябрь 2026',
-            resources: { analysts: 160, developers: 480, testers: 160 },
-            description:
-              'Инфраструктурные изменения выполняются после стабилизации требований, что уменьшает риск ресурсных и организационных конфликтов.',
-          },
-          {
-            id: 'project-3',
-            title: 'Рефакторинг ядра платформы',
-            dependencyNote: 'Зависит от проекта 2',
-            period: 'Октябрь 2026 — Январь 2027',
-            resources: { analysts: 160, developers: 640, testers: 320 },
-            description:
-              'Проект переносится на более поздний момент, чтобы снизить вероятность каскадных технических проблем.',
-          },
-          {
-            id: 'project-4',
-            title: 'Портфельная аналитическая витрина',
-            dependencyNote: 'Зависит от проектов 1 и 3',
-            period: 'Январь 2027 — Февраль 2027',
-            resources: { analysts: 160, developers: 320, testers: 320 },
-            description:
-              'Витрина строится на завершающем этапе, когда ключевые процессы и архитектурные компоненты уже стабилизированы.',
-          },
-        ],
-      },
-      {
-        id: 'aggressive',
-        title: 'Сценарий 3',
-        subtitle: 'Рискованный',
-        description:
-          'Сценарий ориентирован на максимальное ускорение реализации портфеля. Все проекты сохраняются, но выполняются с более высокой параллельностью и повышенной потребностью в ключевых ролях.',
-        aiInterpretation:
-          'ИИ-интерпретация: сценарий позволяет ускорить реализацию, но сопровождается повышенной вероятностью отклонений по срокам, ресурсам и качеству исполнения.',
-        strengths: [
-          'Минимальный общий срок реализации',
-          'Максимальная интенсивность выполнения портфеля',
-          'Высокая скорость запуска зависимых работ',
-        ],
-        weaknesses: [
-          'Наибольшая ресурсная потребность',
-          'Повышенная вероятность срыва зависимых работ',
-          'Слабее соблюдаются ограничения по ресурсам',
-        ],
-        totalDuration: '7 мес',
-        riskCount: 5,
-        constraintsCompliance: 76,
-        resourceFeasibility: 72,
-        totalResources: {
-          analysts: 1120,
-          developers: 2560,
-          testers: 1280,
-        },
-        keyRisks: [
-          {
-            text: 'Высокая нагрузка на разработчиков и тестировщиков в пиковые периоды',
-            level: 'high',
-            impact: 'Высокий',
-          },
-          {
-            text: 'Каскадный срыв сроков при отклонении одного из ранних проектов',
-            level: 'high',
-            impact: 'Высокий',
-          },
-          {
-            text: 'Ухудшение качества исполнения из-за интенсивной параллельной работы',
-            level: 'high',
-            impact: 'Высокий',
-          },
-          {
-            text: 'Выход части работ за допустимые ресурсные лимиты',
-            level: 'high',
-            impact: 'Высокий',
-          },
-          {
-            text: 'Снижение управляемости портфеля при одновременном ведении нескольких критичных инициатив',
-            level: 'medium',
-            impact: 'Средний',
-          },
-        ],
-        constraintsOk: [
-          'Сохранён полный состав портфеля',
-          'Формально учтены зависимости между проектами',
-          'Общий срок реализации минимален среди сценариев',
-        ],
-        constraintsIssues: [
-          'Ресурсные ограничения соблюдаются частично',
-          'Повышена потребность в тестировщиках',
-          'Требуется усиленный контроль сроков зависимых проектов',
-        ],
-        projects: [
-          {
-            id: 'project-1',
-            title: 'Модернизация CI/CD',
-            dependencyNote: 'Выполняется первой без временного буфера',
-            period: 'Май 2026 — Июль 2026',
-            resources: { analysts: 160, developers: 640, testers: 160 },
-            description:
-              'Проект запускается немедленно, чтобы как можно раньше разблокировать последующие работы.',
-          },
-          {
-            id: 'project-2',
-            title: 'Система управления требованиями',
-            dependencyNote: 'Идёт параллельно с проектом 3',
-            period: 'Май 2026 — Июль 2026',
-            resources: { analysts: 320, developers: 480, testers: 160 },
-            description:
-              'Проект стартует максимально рано, чтобы быстрее повысить управляемость портфеля, несмотря на нагрузку на аналитический контур.',
-          },
-          {
-            id: 'project-3',
-            title: 'Рефакторинг ядра платформы',
-            dependencyNote: 'Зависит от проекта 1, идёт параллельно с проектом 2',
-            period: 'Июль 2026 — Октябрь 2026',
-            resources: { analysts: 320, developers: 960, testers: 480 },
-            description:
-              'Проект запускается сразу после подготовки инфраструктурной базы, что ускоряет сценарий, но заметно повышает риск.',
-          },
-          {
-            id: 'project-4',
-            title: 'Портфельная аналитическая витрина',
-            dependencyNote: 'Зависит от проекта 2',
-            period: 'Август 2026 — Ноябрь 2026',
-            resources: { analysts: 320, developers: 480, testers: 480 },
-            description:
-              'Проект стартует при минимально достаточной готовности входных данных для ускоренного получения аналитического результата.',
-          },
-        ],
-      },
-    ],
-    [],
-  );
+const TYPE_SUBTITLE: Record<string, string> = {
+  BALANCED: 'Сбалансированный',
+  CONSERVATIVE: 'Консервативный',
+  RISKY: 'Рискованный',
+};
 
-  const scenariosWithScore = useMemo(() => buildScenarioStatuses(scenarios), [scenarios]);
-
-  const [selectedForPlanning, setSelectedForPlanning] = useState<Record<string, boolean>>({
-    balanced: false,
-    conservative: false,
-    aggressive: false,
-  });
-
-  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({
-    balanced: false,
-    conservative: false,
-    aggressive: false,
-  });
-
-  const handleTogglePlanning = (scenarioId: string) => {
-    setSelectedForPlanning((prev) => ({
-      ...prev,
-      [scenarioId]: !prev[scenarioId],
-    }));
+function fromApi(s: ApiScenario, idx: number): Scenario {
+  return {
+    id: s.type.toLowerCase(),
+    title: `Сценарий ${idx + 1}`,
+    subtitle: TYPE_SUBTITLE[s.type] ?? s.name,
+    description: s.description,
+    aiInterpretation: s.ai_interpretation,
+    strengths: s.strengths,
+    weaknesses: s.weaknesses,
+    totalDuration: `${s.total_duration_months} мес`,
+    riskCount: s.risk_count,
+    constraintsCompliance: s.constraint_compliance_percent,
+    resourceFeasibility: s.resource_feasibility_percent,
+    totalResources: s.total_resources,
+    keyRisks: s.key_risks.map((r) => ({
+      text: r.text,
+      level: r.level,
+      impact: r.impact as ScenarioRisk['impact'],
+    })),
+    constraintsOk: s.complied_constraints,
+    constraintsIssues: s.constraints_in_attention,
+    projects: s.projects.map((p, i) => ({
+      id: `${s.type}-p${i}`,
+      title: p.project_name,
+      dependencyNote: p.dependency_note,
+      period: p.period,
+      resources: p.resources,
+      description: p.description,
+    })),
   };
+}
+
+export function AlternativesScreen({
+  contextId,
+  onNavigateToPlan,
+}: {
+  contextId: string | null;
+  onNavigateToPlan: () => void;
+}) {
+  const [data, setData] = useState<AlternativesData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectingId, setSelectingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!contextId) {
+      setData(null);
+      setSelectedId(null);
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const result = await alternativesApi.get(contextId);
+        setData(result);
+        if (result.selected_scenario_id) setSelectedId(result.selected_scenario_id);
+        if (result.status === 'IN_PROGRESS') timer = setTimeout(load, 5000);
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    return () => clearTimeout(timer);
+  }, [contextId]);
+
+  async function handleGenerate() {
+    if (!contextId) return;
+    setGenerating(true);
+    setActionError(null);
+    try {
+      await alternativesApi.generate(contextId);
+      setData((prev) => ({
+        ...(prev ?? { scenarios: [], selected_scenario_id: null }),
+        status: 'IN_PROGRESS',
+      }));
+    } catch (e: unknown) {
+      const err = e as { detail?: string };
+      setActionError(err.detail ?? 'Ошибка запуска генерации');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleSelectAndProceed() {
+    if (!contextId || !selectedId) return;
+    setSelectingId(selectedId);
+    setActionError(null);
+    try {
+      await alternativesApi.select(contextId, selectedId);
+      onNavigateToPlan();
+    } catch (e: unknown) {
+      const err = e as { detail?: string };
+      setActionError(err.detail ?? 'Ошибка при сохранении выбора');
+    } finally {
+      setSelectingId(null);
+    }
+  }
 
   const handleToggleDetails = (scenarioId: string) => {
-    setExpandedDetails((prev) => ({
-      ...prev,
-      [scenarioId]: !prev[scenarioId],
-    }));
+    setExpandedDetails((prev) => ({ ...prev, [scenarioId]: !prev[scenarioId] }));
   };
 
-  const comparison = [
-    {
-      parameter: 'Интегральная оценка',
-      balanced: `${scenariosWithScore[0].integralScore} / 100`,
-      conservative: `${scenariosWithScore[1].integralScore} / 100`,
-      aggressive: `${scenariosWithScore[2].integralScore} / 100`,
-      highlight: true,
-    },
-    {
-      parameter: 'Количество рисков',
-      balanced: `${scenariosWithScore[0].riskCount}`,
-      conservative: `${scenariosWithScore[1].riskCount}`,
-      aggressive: `${scenariosWithScore[2].riskCount}`,
-    },
-    {
-      parameter: 'Соблюдение ограничений',
-      balanced: `${scenariosWithScore[0].constraintsCompliance}%`,
-      conservative: `${scenariosWithScore[1].constraintsCompliance}%`,
-      aggressive: `${scenariosWithScore[2].constraintsCompliance}%`,
-    },
-    {
-      parameter: 'Ресурсная реализуемость',
-      balanced: `${scenariosWithScore[0].resourceFeasibility}%`,
-      conservative: `${scenariosWithScore[1].resourceFeasibility}%`,
-      aggressive: `${scenariosWithScore[2].resourceFeasibility}%`,
-    },
-    {
-      parameter: 'Общий срок реализации сценария',
-      balanced: scenariosWithScore[0].totalDuration,
-      conservative: scenariosWithScore[1].totalDuration,
-      aggressive: scenariosWithScore[2].totalDuration,
-    },
-    {
-      parameter: 'Статус',
-      balanced: scenariosWithScore[0].status,
-      conservative: scenariosWithScore[1].status,
-      aggressive: scenariosWithScore[2].status,
-    },
-  ];
+  if (!contextId) {
+    return (
+      <main className="flex-1 overflow-auto bg-neutral-50 flex items-center justify-center">
+        <p className="text-neutral-400 text-sm">Выберите мультипроект для работы</p>
+      </main>
+    );
+  }
+
+  if (!data || data.status === 'NOT_STARTED') {
+    return (
+      <main className="flex-1 overflow-auto bg-neutral-50">
+        <div className="max-w-6xl mx-auto p-8">
+          <h1 className="text-neutral-900 mb-2">Альтернативы</h1>
+          <p className="text-sm text-neutral-500 mb-8">
+            Формирование и сравнение сценариев реализации портфеля проектов с учётом
+            ограничений, зависимостей, рисков и распределения ресурсов
+          </p>
+          <div className="bg-white border border-neutral-200 rounded-xl p-10 flex flex-col items-center gap-4">
+            <GitBranch className="w-10 h-10 text-neutral-300" />
+            <p className="text-neutral-500 text-sm">Сценарии ещё не сформированы</p>
+            {actionError && (
+              <p className="text-red-600 text-sm">{actionError}</p>
+            )}
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating || loading}
+              className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-lg text-sm hover:bg-neutral-800 transition-colors disabled:opacity-60"
+            >
+              {generating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              <span>{generating ? 'Запуск...' : 'Сформировать альтернативы'}</span>
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (data.status === 'IN_PROGRESS') {
+    return (
+      <main className="flex-1 overflow-auto bg-neutral-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
+          <p className="text-neutral-500 text-sm">Генерация сценариев, подождите…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (data.status === 'FAILED') {
+    return (
+      <main className="flex-1 overflow-auto bg-neutral-50">
+        <div className="max-w-6xl mx-auto p-8">
+          <h1 className="text-neutral-900 mb-2">Альтернативы</h1>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col items-center gap-4">
+            <TriangleAlert className="w-8 h-8 text-red-400" />
+            <p className="text-red-700 text-sm text-center">{data.error ?? 'Ошибка генерации сценариев'}</p>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors disabled:opacity-60"
+            >
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Повторить</span>
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const scenarios = data.scenarios.map(fromApi);
+  const scenariosWithScore = buildScenarioStatuses(scenarios);
+
+  const comparison =
+    scenariosWithScore.length === 3
+      ? [
+          {
+            parameter: 'Интегральная оценка',
+            values: scenariosWithScore.map((s) => `${s.integralScore} / 100`),
+            highlight: true,
+          },
+          {
+            parameter: 'Количество рисков',
+            values: scenariosWithScore.map((s) => `${s.riskCount}`),
+          },
+          {
+            parameter: 'Соблюдение ограничений',
+            values: scenariosWithScore.map((s) => `${s.constraintsCompliance}%`),
+          },
+          {
+            parameter: 'Ресурсная реализуемость',
+            values: scenariosWithScore.map((s) => `${s.resourceFeasibility}%`),
+          },
+          {
+            parameter: 'Общий срок реализации',
+            values: scenariosWithScore.map((s) => s.totalDuration),
+          },
+          {
+            parameter: 'Статус',
+            values: scenariosWithScore.map((s) => s.status),
+          },
+        ]
+      : [];
 
   return (
     <main className="flex-1 overflow-auto bg-neutral-50">
@@ -505,9 +360,24 @@ export function AlternativesScreen() {
 
         <div className="space-y-6">
           <section className="bg-white border border-neutral-200 rounded-xl p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <GitBranch className="w-5 h-5 text-blue-500" />
-              <h2 className="text-neutral-900">Сгенерированные сценарии</h2>
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex items-center gap-2">
+                <GitBranch className="w-5 h-5 text-blue-500" />
+                <h2 className="text-neutral-900">Сгенерированные сценарии</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="flex items-center gap-2 px-4 py-2 border border-neutral-200 rounded-lg text-sm text-neutral-700 hover:bg-neutral-100 transition-colors disabled:opacity-60"
+              >
+                {generating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                <span>Перегенерировать</span>
+              </button>
             </div>
 
             <p className="text-sm text-neutral-600 leading-relaxed mb-6">
@@ -519,8 +389,8 @@ export function AlternativesScreen() {
 
             <div className="grid grid-cols-1 gap-4">
               {scenariosWithScore.map((scenario) => {
-                const isSelected = selectedForPlanning[scenario.id];
-                const isExpanded = expandedDetails[scenario.id];
+                const isSelected = selectedId === scenario.id;
+                const isExpanded = expandedDetails[scenario.id] ?? false;
 
                 return (
                   <div
@@ -539,13 +409,10 @@ export function AlternativesScreen() {
 
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <span
-                          className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getScenarioStatusClass(
-                            scenario.status,
-                          )}`}
+                          className={`px-2 py-1 rounded text-xs whitespace-nowrap ${getScenarioStatusClass(scenario.status)}`}
                         >
                           {scenario.status}
                         </span>
-
                         <span className="px-2 py-1 rounded text-xs whitespace-nowrap bg-blue-100 text-blue-700">
                           Интегральная оценка: {scenario.integralScore}
                         </span>
@@ -578,9 +445,7 @@ export function AlternativesScreen() {
                           <ShieldCheck className="w-4 h-4 text-neutral-500" />
                           <p className="text-xs text-neutral-500">Соблюдение ограничений</p>
                         </div>
-                        <p className="text-sm text-neutral-800">
-                          {scenario.constraintsCompliance}%
-                        </p>
+                        <p className="text-sm text-neutral-800">{scenario.constraintsCompliance}%</p>
                       </div>
 
                       <div className="p-3 bg-neutral-50 rounded-lg border border-neutral-200">
@@ -678,7 +543,6 @@ export function AlternativesScreen() {
                                 Перечень рисков сценария
                               </h4>
                             </div>
-
                             <div className="space-y-3">
                               {scenario.keyRisks.map((risk, index) => (
                                 <div
@@ -687,18 +551,12 @@ export function AlternativesScreen() {
                                 >
                                   <div className="flex items-start gap-3">
                                     <div
-                                      className={`w-2.5 h-2.5 rounded-full mt-2 ${getDotClasses(
-                                        risk.level,
-                                      )}`}
+                                      className={`w-2.5 h-2.5 rounded-full mt-2 ${getDotClasses(risk.level)}`}
                                     />
-
                                     <div className="flex-1">
                                       <p className="text-sm text-neutral-700 mb-2">{risk.text}</p>
-
                                       <span
-                                        className={`inline-flex px-2 py-1 rounded text-xs ${getImpactClasses(
-                                          risk.level,
-                                        )}`}
+                                        className={`inline-flex px-2 py-1 rounded text-xs ${getImpactClasses(risk.level)}`}
                                       >
                                         Влияние: {risk.impact}
                                       </span>
@@ -716,7 +574,6 @@ export function AlternativesScreen() {
                               Проекты сценария
                             </h4>
                           </div>
-
                           <div className="overflow-x-auto">
                             <table className="w-full min-w-[980px]">
                               <thead className="bg-white">
@@ -792,7 +649,7 @@ export function AlternativesScreen() {
 
                       <button
                         type="button"
-                        onClick={() => handleTogglePlanning(scenario.id)}
+                        onClick={() => setSelectedId(isSelected ? null : scenario.id)}
                         className={`px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${
                           isSelected
                             ? 'bg-emerald-600 text-white hover:bg-emerald-700 border border-emerald-600'
@@ -815,96 +672,90 @@ export function AlternativesScreen() {
             </div>
           </section>
 
-          <section className="bg-white border border-neutral-200 rounded-xl p-6">
-            <h2 className="text-neutral-900 mb-4">Матрица сравнения альтернатив</h2>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr className="border-b border-neutral-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                      Параметр
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                      Сбалансированный
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                      Консервативный
-                    </th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
-                      Рискованный
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparison.map((row) => (
-                    <tr
-                      key={row.parameter}
-                      className={`border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
-                        row.highlight ? 'bg-blue-50/60' : ''
-                      }`}
-                    >
-                      <td className="py-3 px-4 text-sm font-medium text-neutral-700">
-                        {row.parameter}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-neutral-700">{row.balanced}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-700">{row.conservative}</td>
-                      <td className="py-3 px-4 text-sm text-neutral-700">{row.aggressive}</td>
+          {comparison.length === 3 && (
+            <section className="bg-white border border-neutral-200 rounded-xl p-6">
+              <h2 className="text-neutral-900 mb-4">Матрица сравнения альтернатив</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-neutral-200">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-neutral-700">
+                        Параметр
+                      </th>
+                      {scenariosWithScore.map((s) => (
+                        <th
+                          key={s.id}
+                          className="text-left py-3 px-4 text-sm font-medium text-neutral-700"
+                        >
+                          {s.subtitle}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
+                  </thead>
+                  <tbody>
+                    {comparison.map((row) => (
+                      <tr
+                        key={row.parameter}
+                        className={`border-b border-neutral-100 hover:bg-neutral-50 transition-colors ${
+                          row.highlight ? 'bg-blue-50/60' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-4 text-sm font-medium text-neutral-700">
+                          {row.parameter}
+                        </td>
+                        {row.values.map((v, i) => (
+                          <td key={i} className="py-3 px-4 text-sm text-neutral-700">
+                            {v}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
 
-                  <tr className="hover:bg-neutral-50 transition-colors">
-                    <td className="py-4 px-4 text-sm font-medium text-neutral-700">
-                      Выбор для планирования
-                    </td>
-                    <td className="py-4 px-4">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePlanning('balanced')}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          selectedForPlanning.balanced
-                            ? 'bg-emerald-600 text-white'
-                            : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
-                        }`}
-                      >
-                        {selectedForPlanning.balanced ? 'Выбрано' : 'Выбрать'}
-                      </button>
-                    </td>
-                    <td className="py-4 px-4">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePlanning('conservative')}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          selectedForPlanning.conservative
-                            ? 'bg-emerald-600 text-white'
-                            : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
-                        }`}
-                      >
-                        {selectedForPlanning.conservative ? 'Выбрано' : 'Выбрать'}
-                      </button>
-                    </td>
-                    <td className="py-4 px-4">
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePlanning('aggressive')}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          selectedForPlanning.aggressive
-                            ? 'bg-emerald-600 text-white'
-                            : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
-                        }`}
-                      >
-                        {selectedForPlanning.aggressive ? 'Выбрано' : 'Выбрать'}
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+                    <tr className="hover:bg-neutral-50 transition-colors">
+                      <td className="py-4 px-4 text-sm font-medium text-neutral-700">
+                        Выбор для планирования
+                      </td>
+                      {scenariosWithScore.map((s) => {
+                        const isSelected = selectedId === s.id;
+                        return (
+                          <td key={s.id} className="py-4 px-4">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedId(isSelected ? null : s.id)}
+                              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                                isSelected
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
+                              }`}
+                            >
+                              {isSelected ? 'Выбрано' : 'Выбрать'}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
-          <button className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            <span>Перейти к плану</span>
+          {actionError && (
+            <p className="text-red-600 text-sm text-center">{actionError}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSelectAndProceed}
+            disabled={!selectedId || !!selectingId}
+            className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {selectingId ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5" />
+            )}
+            <span>{selectingId ? 'Сохранение...' : 'Перейти к плану'}</span>
           </button>
         </div>
       </div>

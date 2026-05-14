@@ -618,7 +618,7 @@ export function GoalsScreen({ contextId }: { contextId: string | null }) {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [ctxOrientations, setCtxOrientations] = useState<CtxOrientation[]>([]);
   const [ctxProjects, setCtxProjects] = useState<CtxProject[]>([]);
-  const [addedSuggestionIds, setAddedSuggestionIds] = useState<Set<string>>(new Set());
+  const [addedSuggestionIndices, setAddedSuggestionIndices] = useState<Set<number>>(new Set());
 
   const formRef = useRef<HTMLElement | null>(null);
   const goalRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -665,7 +665,7 @@ export function GoalsScreen({ contextId }: { contextId: string | null }) {
     setSuggestedGoals([]);
     setIsSuggestedGenerated(false);
     setSuggestionsError(null);
-    setAddedSuggestionIds(new Set());
+    setAddedSuggestionIndices(new Set());
   }, [contextId]);
 
   const orientationsMap = useMemo(() => {
@@ -748,7 +748,7 @@ export function GoalsScreen({ contextId }: { contextId: string | null }) {
     setSuggestionsLoading(true);
     setSuggestionsError(null);
     setSuggestedGoals([]);
-    setAddedSuggestionIds(new Set());
+    setAddedSuggestionIndices(new Set());
     setIsSuggestedGenerated(false);
     try {
       const { ai_suggestions } = await goalsApi.suggestions(contextId);
@@ -782,13 +782,13 @@ export function GoalsScreen({ contextId }: { contextId: string | null }) {
     setGoals((prev) => prev.filter((item) => item.id !== goalId));
   }
 
-  function handleAddSuggestedGoal(goal: FrontendGoal) {
-    if (addedSuggestionIds.has(goal.id)) return;
+  function handleAddSuggestedGoal(goal: FrontendGoal, index: number) {
+    if (addedSuggestionIndices.has(index)) return;
 
     const newGoalId = `goal-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     setGoals((prev) => [{ ...goal, id: newGoalId, createdBy: 'ai' }, ...prev]);
-    setAddedSuggestionIds((prev) => new Set(prev).add(goal.id));
+    setAddedSuggestionIndices((prev) => new Set(prev).add(index));
     scrollToGoal(newGoalId);
   }
 
@@ -1039,13 +1039,13 @@ export function GoalsScreen({ contextId }: { contextId: string | null }) {
 
             {isSuggestedGenerated ? (
               <div className="space-y-3">
-                {suggestedGoals.map((goal) => (
+                {suggestedGoals.map((goal, index) => (
                   <SuggestedGoalCard
-                    key={goal.id}
+                    key={index}
                     goal={goal}
-                    onAdd={handleAddSuggestedGoal}
+                    onAdd={(g) => handleAddSuggestedGoal(g, index)}
                     orientationsMap={orientationsMap}
-                    isAdded={addedSuggestionIds.has(goal.id)}
+                    isAdded={addedSuggestionIndices.has(index)}
                   />
                 ))}
               </div>

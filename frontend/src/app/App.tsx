@@ -150,7 +150,12 @@ export default function App() {
 
       {activeScreen === 'Цели' && <GoalsScreen contextId={selectedMultiproject?.id ?? null} />}
 
-      {activeScreen === 'Альтернативы' && <AlternativesScreen />}
+      {activeScreen === 'Альтернативы' && (
+        <AlternativesScreen
+          contextId={selectedMultiproject?.id ?? null}
+          onNavigateToPlan={() => setActiveScreen('План')}
+        />
+      )}
 
       {activeScreen === 'План' && (
         <PlanScreen selectedMultiproject={selectedMultiproject} />

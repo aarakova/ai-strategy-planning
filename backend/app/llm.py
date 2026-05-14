@@ -3,6 +3,7 @@ import json
 import logging
 import re
 
+import openai
 from openai import AsyncOpenAI
 
 from .config import settings
@@ -28,9 +29,14 @@ def _extract_json(text: str | None) -> dict:
     text = text.strip()
     if not text:
         raise ValueError("LLM вернул пустую строку (rate limit или content filter)")
+    # Попытка 1: блок с закрывающими бэктиками
     match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", text)
     if match:
-        text = match.group(1).strip()
+        return json.loads(match.group(1).strip())
+    # Попытка 2: блок без закрывающих бэктиков (обрезанный ответ)
+    match = re.search(r"```(?:json)?\s*([\s\S]+)", text)
+    if match:
+        return json.loads(match.group(1).strip())
     return json.loads(text)
 
 
@@ -45,13 +51,26 @@ async def chat_json(messages: list[dict], model: str | None = None, max_retries:
     """
     last_error: Exception = RuntimeError("Нет попыток")
     for attempt in range(max_retries):
-        resp = await get_client().chat.completions.create(
-            model=model or settings.openrouter_model,
-            messages=messages,
-            max_tokens=4096,
-            timeout=120,
-        )
-        raw = resp.choices[0].message.content
+        try:
+            resp = await get_client().chat.completions.create(
+                model=model or settings.openrouter_model,
+                messages=messages,
+                max_tokens=8192,
+                timeout=120,
+            )
+        except openai.RateLimitError as e:
+            err_str = str(e).lower()
+            # Daily/permanent limits cannot be resolved by retrying
+            if "per-day" in err_str or "credits" in err_str or "per_day" in err_str:
+                raise
+            last_error = e
+            _log.warning("Rate limit (попытка %d/%d): %s", attempt + 1, max_retries, e)
+            if attempt < max_retries - 1:
+                delay = _RETRY_DELAYS[min(attempt, len(_RETRY_DELAYS) - 1)]
+                _log.info("Ожидание %d с перед следующей попыткой...", delay)
+                await asyncio.sleep(delay)
+            continue
+        raw = resp.choices[0].message.content if resp.choices else None
         try:
             return _extract_json(raw)
         except (json.JSONDecodeError, ValueError) as e:

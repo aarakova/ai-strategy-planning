@@ -499,3 +499,584 @@
 
 ---
 
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-14 23:22:54 · модель: `deepseek/deepseek-v4-flash:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-14 23:27:29 · модель: `deepseek/deepseek-v4-flash:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-14 23:32:45 · модель: `deepseek/deepseek-v4-flash:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-15 00:02:29 · модель: `deepseek/deepseek-v4-flash:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-15 00:12:20 · модель: `deepseek/deepseek-v4-flash:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-15 00:13:54 · модель: `google/gemini-2.0-flash-exp:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "FAILED",
+  "scenario_count": 0
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-15 00:18:15 · модель: `openai/gpt-oss-20b:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "COMPLETED",
+  "scenario_count": 3
+}
+```
+
+---
+
+## Альтернатива BALANCED (cached_scenarios)
+*2026-05-15 00:19:23 · модель: `openai/gpt-oss-20b:free`*
+
+### Вход (SYSTEM)
+
+```
+Ты — эксперт по стратегическому планированию портфеля проектов.
+Сформируй ровно 1 сценарий реализации типа BALANCED.
+
+ВАЖНО: верни ТОЛЬКО JSON-объект — никаких пояснений, рассуждений, markdown или лишнего текста до или после JSON.
+
+Структура ответа:
+{"scenario":{"type":"BALANCED","name":"<название>","description":"<1-2 предл>","ai_interpretation":"<1-2 предл>","total_duration_months":8,"risk_count":3,"constraint_compliance_percent":90,"resource_feasibility_percent":85,"strengths":["<1 предл>"],"weaknesses":["<1 предл>"],"total_resources":{"analysts":600,"developers":1440,"testers":480},"key_risks":[{"text":"<1 предл>","level":"high|medium|low","impact":"Высокий|Средний|Низкий"}],"complied_constraints":["<1 предл>"],"constraints_in_attention":["<1 предл>"],"projects":[{"project_name":"<точное название>","dependency_note":"<1 предл>","period":"Месяц ГГГГ — Месяц ГГГГ","description":"<1 предл>","resources":{"analysts":0,"developers":0,"testers":0}}]}}
+
+Правила:
+- Тип сценария строго BALANCED
+- Порядок проектов — от первого к последнему по зависимостям
+- project_name: точные названия из входных данных
+- Все тексты на русском; каждое текстовое поле — не более 2 предложений
+- total_resources — суммарные часы по всем проектам сценария
+- НЕ добавляй текст до или после JSON
+
+```
+
+### Вход (USER)
+
+```
+Портфель: Цифровая трансформация ИТ-инфраструктуры, горизонт: 2026-12-31
+Ориентиры: [{"vision": "Автоматизировать не менее 80% ключевых бизнес-процессов компании к концу 2026 года", "priority": "Высокий"}, {"vision": "Снизить операционные затраты на 20% за счёт внедрения цифровых инструментов", "priority": "Средний"}, {"vision": "Обеспечить соответствие всех систем требованиям регулятора по информационной безопасности (ГОСТ Р 57580)", "priority": "Высокий"}]
+Проекты: [{"name": "Единая платформа авторизации", "status": "В работе", "start_date": "2026-01-15", "end_date": "2026-06-30", "workload": {"analysts": 120, "developers": 320, "testers": 100}}, {"name": "Система электронного документооборота", "status": "Не начато", "start_date": "2026-04-01", "end_date": "2026-10-31", "workload": {"analysts": 160, "developers": 400, "testers": 140}}, {"name": "Модуль аналитики и отчётности", "status": "Не начато", "start_date": "2026-08-01", "end_date": "2026-12-31", "workload": {"analysts": 240, "developers": 480, "testers": 160}}, {"name": "Интеграционная шина данных", "status": "В работе", "start_date": "2026-02-01", "end_date": "2026-07-31", "workload": {"analysts": 80, "developers": 240, "testers": 80}}]
+Зависимости: [{"main": "Единая платформа авторизации", "dependent": "Система электронного документооборота"}, {"main": "Интеграционная шина данных", "dependent": "Модуль аналитики и отчётности"}, {"main": "Система электронного документооборота", "dependent": "Модуль аналитики и отчётности"}]
+Лимиты ресурсов: аналитики=600, разработчики=1200, тестировщики=500, дедлайн=2026-12-31
+Сформируй 3 сценария.
+```
+
+### Ответ LLM
+
+```json
+{
+  "scenario": {
+    "type": "BALANCED",
+    "name": "«Постепенная цифровизация»",
+    "description": "Плавный переход к полной автоматизации с сохранением бюджета и сроков",
+    "ai_interpretation": "Гибкая реализация с учётом бизнес‑приоритетов и ограничений",
+    "total_duration_months": 8,
+    "risk_count": 3,
+    "constraint_compliance_percent": 90,
+    "resource_feasibility_percent": 85,
+    "strengths": [
+      "Оптимальное распределение ресурсов и времени"
+    ],
+    "weaknesses": [
+      "Высокая зависимость от ранних проектов"
+    ],
+    "total_resources": {
+      "analysts": 600,
+      "developers": 1440,
+      "testers": 480
+    },
+    "key_risks": [
+      {
+        "text": "Скомпенсировать сроки проектов в случае задержек на этапе авторизации",
+        "level": "high",
+        "impact": "Высокий"
+      }
+    ],
+    "complied_constraints": [
+      "Пункт 1: завершение до 2026‑12‑31"
+    ],
+    "constraints_in_attention": [
+      "Кодируются максимальные нагрузки на разработчиков"
+    ],
+    "projects": [
+      {
+        "project_name": "Единая платформа авторизации",
+        "dependency_note": "Выполняется первым из-за критичности для остальных",
+        "period": "Месяц 1 2026 — Месяц 6 2026",
+        "description": "Создание единой системы входа для всех сервисов",
+        "resources": {
+          "analysts": 120,
+          "developers": 320,
+          "testers": 100
+        }
+      },
+      {
+        "project_name": "Интеграционная шина данных",
+        "dependency_note": "Зависит от платформы авторизации",
+        "period": "Месяц 2 2026 — Месяц 7 2026",
+        "description": "Обеспечение обмена данными между системами",
+        "resources": {
+          "analysts": 80,
+          "developers": 240,
+          "testers": 80
+        }
+      },
+      {
+        "project_name": "Система электронного документооборота",
+        "dependency_note": "Зависит от шины и платформы",
+        "period": "Месяц 4 2026 — Месяц 10 2026",
+        "description": "Автоматизация документооборота в рамках ИТ",
+        "resources": {
+          "analysts": 160,
+          "developers": 400,
+          "testers": 140
+        }
+      },
+      {
+        "project_name": "Модуль аналитики и отчётности",
+        "dependency_note": "Зависит от всех предыдущих проектов",
+        "period": "Месяц 8 2026 — Месяц 12 2026",
+        "description": "Внедрение бизнес‑интеллекта по данным школ",
+        "resources": {
+          "analysts": 240,
+          "developers": 480,
+          "testers": 160
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Альтернатива CONSERVATIVE (cached_scenarios)
+*2026-05-15 00:19:52 · модель: `openai/gpt-oss-20b:free`*
+
+### Вход (SYSTEM)
+
+```
+Ты — эксперт по стратегическому планированию портфеля проектов.
+Сформируй ровно 1 сценарий реализации типа CONSERVATIVE.
+
+ВАЖНО: верни ТОЛЬКО JSON-объект — никаких пояснений, рассуждений, markdown или лишнего текста до или после JSON.
+
+Структура ответа:
+{"scenario":{"type":"CONSERVATIVE","name":"<название>","description":"<1-2 предл>","ai_interpretation":"<1-2 предл>","total_duration_months":8,"risk_count":3,"constraint_compliance_percent":90,"resource_feasibility_percent":85,"strengths":["<1 предл>"],"weaknesses":["<1 предл>"],"total_resources":{"analysts":600,"developers":1440,"testers":480},"key_risks":[{"text":"<1 предл>","level":"high|medium|low","impact":"Высокий|Средний|Низкий"}],"complied_constraints":["<1 предл>"],"constraints_in_attention":["<1 предл>"],"projects":[{"project_name":"<точное название>","dependency_note":"<1 предл>","period":"Месяц ГГГГ — Месяц ГГГГ","description":"<1 предл>","resources":{"analysts":0,"developers":0,"testers":0}}]}}
+
+Правила:
+- Тип сценария строго CONSERVATIVE
+- Порядок проектов — от первого к последнему по зависимостям
+- project_name: точные названия из входных данных
+- Все тексты на русском; каждое текстовое поле — не более 2 предложений
+- total_resources — суммарные часы по всем проектам сценария
+- НЕ добавляй текст до или после JSON
+
+```
+
+### Вход (USER)
+
+```
+Портфель: Цифровая трансформация ИТ-инфраструктуры, горизонт: 2026-12-31
+Ориентиры: [{"vision": "Автоматизировать не менее 80% ключевых бизнес-процессов компании к концу 2026 года", "priority": "Высокий"}, {"vision": "Снизить операционные затраты на 20% за счёт внедрения цифровых инструментов", "priority": "Средний"}, {"vision": "Обеспечить соответствие всех систем требованиям регулятора по информационной безопасности (ГОСТ Р 57580)", "priority": "Высокий"}]
+Проекты: [{"name": "Единая платформа авторизации", "status": "В работе", "start_date": "2026-01-15", "end_date": "2026-06-30", "workload": {"analysts": 120, "developers": 320, "testers": 100}}, {"name": "Система электронного документооборота", "status": "Не начато", "start_date": "2026-04-01", "end_date": "2026-10-31", "workload": {"analysts": 160, "developers": 400, "testers": 140}}, {"name": "Модуль аналитики и отчётности", "status": "Не начато", "start_date": "2026-08-01", "end_date": "2026-12-31", "workload": {"analysts": 240, "developers": 480, "testers": 160}}, {"name": "Интеграционная шина данных", "status": "В работе", "start_date": "2026-02-01", "end_date": "2026-07-31", "workload": {"analysts": 80, "developers": 240, "testers": 80}}]
+Зависимости: [{"main": "Единая платформа авторизации", "dependent": "Система электронного документооборота"}, {"main": "Интеграционная шина данных", "dependent": "Модуль аналитики и отчётности"}, {"main": "Система электронного документооборота", "dependent": "Модуль аналитики и отчётности"}]
+Лимиты ресурсов: аналитики=600, разработчики=1200, тестировщики=500, дедлайн=2026-12-31
+Сформируй 3 сценария.
+```
+
+### Ответ LLM
+
+```json
+{
+  "scenario": {
+    "type": "CONSERVATIVE",
+    "name": "Оптимизация бизнес‑процессов",
+    "description": "Сосредоточимся на ключевых проектах с минимальными рисками.",
+    "ai_interpretation": "Приоритет – стабилизация ИТ‑инфраструктуры и соответствие требованиям безопасности.",
+    "total_duration_months": 8,
+    "risk_count": 3,
+    "constraint_compliance_percent": 90,
+    "resource_feasibility_percent": 85,
+    "strengths": [
+      "Надёжный ход реализации с учётом текущих ограничений"
+    ],
+    "weaknesses": [
+      "Медленное внедрение новых функций"
+    ],
+    "total_resources": {
+      "analysts": 600,
+      "developers": 1440,
+      "testers": 480
+    },
+    "key_risks": [
+      {
+        "text": "Перегрузка персонала из‑за высокой нагрузки",
+        "level": "high",
+        "impact": "Высокий"
+      }
+    ],
+    "complied_constraints": [
+      "Соблюдение дедлайна 2026‑12‑31"
+    ],
+    "constraints_in_attention": [
+      "Зависимости между проектами"
+    ],
+    "projects": [
+      {
+        "project_name": "Единая платформа авторизации",
+        "dependency_note": "Завершить до старта ЭДО",
+        "period": "Месяц 01 2026 — Месяц 06 2026",
+        "description": "Условок авторизации через единую систему",
+        "resources": {
+          "analysts": 120,
+          "developers": 320,
+          "testers": 100
+        }
+      },
+      {
+        "project_name": "Система электронного документооборота",
+        "dependency_note": "Старт после окончания ЕПА",
+        "period": "Месяц 04 2026 — Месяц 10 2026",
+        "description": "Обеспечение цифрового документооборота",
+        "resources": {
+          "analysts": 160,
+          "developers": 400,
+          "testers": 140
+        }
+      },
+      {
+        "project_name": "Интеграционная шина данных",
+        "dependency_note": "Объединяет данные всех систем",
+        "period": "Месяц 02 2026 — Месяц 07 2026",
+        "description": "Надёжный обмен данными между платформами",
+        "resources": {
+          "analysts": 80,
+          "developers": 240,
+          "testers": 80
+        }
+      },
+      {
+        "project_name": "Модуль аналитики и отчётности",
+        "dependency_note": "Зависит от ЕПА и ЭДО",
+        "period": "Месяц 08 2026 — Месяц 12 2026",
+        "description": "Отчёты и аналитика на основе собранных данных",
+        "resources": {
+          "analysts": 240,
+          "developers": 480,
+          "testers": 160
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Альтернатива RISKY (cached_scenarios)
+*2026-05-15 00:20:24 · модель: `openai/gpt-oss-20b:free`*
+
+### Вход (SYSTEM)
+
+```
+Ты — эксперт по стратегическому планированию портфеля проектов.
+Сформируй ровно 1 сценарий реализации типа RISKY.
+
+ВАЖНО: верни ТОЛЬКО JSON-объект — никаких пояснений, рассуждений, markdown или лишнего текста до или после JSON.
+
+Структура ответа:
+{"scenario":{"type":"RISKY","name":"<название>","description":"<1-2 предл>","ai_interpretation":"<1-2 предл>","total_duration_months":8,"risk_count":3,"constraint_compliance_percent":90,"resource_feasibility_percent":85,"strengths":["<1 предл>"],"weaknesses":["<1 предл>"],"total_resources":{"analysts":600,"developers":1440,"testers":480},"key_risks":[{"text":"<1 предл>","level":"high|medium|low","impact":"Высокий|Средний|Низкий"}],"complied_constraints":["<1 предл>"],"constraints_in_attention":["<1 предл>"],"projects":[{"project_name":"<точное название>","dependency_note":"<1 предл>","period":"Месяц ГГГГ — Месяц ГГГГ","description":"<1 предл>","resources":{"analysts":0,"developers":0,"testers":0}}]}}
+
+Правила:
+- Тип сценария строго RISKY
+- Порядок проектов — от первого к последнему по зависимостям
+- project_name: точные названия из входных данных
+- Все тексты на русском; каждое текстовое поле — не более 2 предложений
+- total_resources — суммарные часы по всем проектам сценария
+- НЕ добавляй текст до или после JSON
+
+```
+
+### Вход (USER)
+
+```
+Портфель: Цифровая трансформация ИТ-инфраструктуры, горизонт: 2026-12-31
+Ориентиры: [{"vision": "Автоматизировать не менее 80% ключевых бизнес-процессов компании к концу 2026 года", "priority": "Высокий"}, {"vision": "Снизить операционные затраты на 20% за счёт внедрения цифровых инструментов", "priority": "Средний"}, {"vision": "Обеспечить соответствие всех систем требованиям регулятора по информационной безопасности (ГОСТ Р 57580)", "priority": "Высокий"}]
+Проекты: [{"name": "Единая платформа авторизации", "status": "В работе", "start_date": "2026-01-15", "end_date": "2026-06-30", "workload": {"analysts": 120, "developers": 320, "testers": 100}}, {"name": "Система электронного документооборота", "status": "Не начато", "start_date": "2026-04-01", "end_date": "2026-10-31", "workload": {"analysts": 160, "developers": 400, "testers": 140}}, {"name": "Модуль аналитики и отчётности", "status": "Не начато", "start_date": "2026-08-01", "end_date": "2026-12-31", "workload": {"analysts": 240, "developers": 480, "testers": 160}}, {"name": "Интеграционная шина данных", "status": "В работе", "start_date": "2026-02-01", "end_date": "2026-07-31", "workload": {"analysts": 80, "developers": 240, "testers": 80}}]
+Зависимости: [{"main": "Единая платформа авторизации", "dependent": "Система электронного документооборота"}, {"main": "Интеграционная шина данных", "dependent": "Модуль аналитики и отчётности"}, {"main": "Система электронного документооборота", "dependent": "Модуль аналитики и отчётности"}]
+Лимиты ресурсов: аналитики=600, разработчики=1200, тестировщики=500, дедлайн=2026-12-31
+Сформируй 3 сценария.
+```
+
+### Ответ LLM
+
+```json
+{
+  "scenario": {
+    "type": "RISKY",
+    "name": "Оптимизация в условиях ограничений",
+    "description": "Достигнуть целей при переполнении ресурсов и сжатию сроков.",
+    "ai_interpretation": "Рискованный баланс между быстрым внедрением и возможными ошибками с высоким уровнем неопределенности.",
+    "total_duration_months": 8,
+    "risk_count": 3,
+    "constraint_compliance_percent": 90,
+    "resource_feasibility_percent": 85,
+    "strengths": [
+      "Сжатый график ускоряет рыночный выход"
+    ],
+    "weaknesses": [
+      "Повышенный риск ошибок и дефицитной кадровой нагрузки"
+    ],
+    "total_resources": {
+      "analysts": 600,
+      "developers": 1440,
+      "testers": 480
+    },
+    "key_risks": [
+      {
+        "text": "Потенциальный дефицит ресурсов, особенно разработчиков, в конце 2026",
+        "level": "high",
+        "impact": "Высокий"
+      }
+    ],
+    "complied_constraints": [
+      "Удостоверьтесь, что дедлайн 2026-12-31 соблюдён"
+    ],
+    "constraints_in_attention": [
+      "Ресурсный лимит разработчиков в 1200",
+      "Нужно поддерживать тестировщики не ниже 480"
+    ],
+    "projects": [
+      {
+        "project_name": "Единая платформа авторизации",
+        "dependency_note": "Начинается после завершения интеграционной шины",
+        "period": "Месяц 1 — Месяц 5",
+        "description": "Построить центральный сервис идентификации и авторизации",
+        "resources": {
+          "analysts": 120,
+          "developers": 320,
+          "testers": 100
+        }
+      },
+      {
+        "project_name": "Интеграционная шина данных",
+        "dependency_note": "Начинается сразу после запуска платформы авторизации",
+        "period": "Месяц 1 — Месяц 6",
+        "description": "Создать унифицированный канал обмена данными",
+        "resources": {
+          "analysts": 80,
+          "developers": 240,
+          "testers": 80
+        }
+      },
+      {
+        "project_name": "Система электронного документооборота",
+        "dependency_note": "Зависит от обеих предыдущих проектов",
+        "period": "Месяц 3 — Месяц 9",
+        "description": "Внедрить электронную систему для управления документами",
+        "resources": {
+          "analysts": 160,
+          "developers": 400,
+          "testers": 140
+        }
+      },
+      {
+        "project_name": "Модуль аналитики и отчётности",
+        "dependency_note": "Возрастает после завершения всех предыдущих",
+        "period": "Месяц 6 — Месяц 12",
+        "description": "Разработать инструмент аналитики и бизнес‑отчетности",
+        "resources": {
+          "analysts": 240,
+          "developers": 480,
+          "testers": 160
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Сквозной тест _run_alternatives_generation (end-to-end)
+*2026-05-15 00:21:24 · модель: `openai/gpt-oss-20b:free`*
+
+### Вход (SYSTEM)
+
+```
+(see individual scenario calls above)
+```
+
+### Вход (USER)
+
+```
+portfolio: Цифровая трансформация ИТ-инфраструктуры
+```
+
+### Ответ LLM
+
+```json
+{
+  "status": "COMPLETED",
+  "scenario_count": 3
+}
+```
+
+---
+
