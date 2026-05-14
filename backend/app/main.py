@@ -29,12 +29,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_prefix = "/api/v1"
-app.include_router(auth.router, prefix=_prefix)
-app.include_router(contexts.router, prefix=_prefix)
-app.include_router(home.router, prefix=_prefix)
-app.include_router(context.router, prefix=_prefix)
-app.include_router(analysis.router, prefix=_prefix)
-app.include_router(goals.router, prefix=_prefix)
-app.include_router(alternatives.router, prefix=_prefix)
-app.include_router(plan.router, prefix=_prefix)
+app.include_router(auth.router)
+app.include_router(contexts.router)
+app.include_router(home.router)
+app.include_router(context.router)
+app.include_router(analysis.router)
+app.include_router(goals.router)
+app.include_router(alternatives.router)
+app.include_router(plan.router)
