@@ -193,7 +193,8 @@ export function AlternativesScreen({
         if (result.selected_scenario_id) setSelectedId(result.selected_scenario_id);
         if (result.status === 'IN_PROGRESS') timer = setTimeout(load, 5000);
       } catch {
-        // ignore
+        // retry on network error if we expect generation to be running
+        timer = setTimeout(load, 5000);
       } finally {
         setLoading(false);
       }

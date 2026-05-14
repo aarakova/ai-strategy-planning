@@ -158,7 +158,10 @@ export default function App() {
       )}
 
       {activeScreen === 'План' && (
-        <PlanScreen selectedMultiproject={selectedMultiproject} />
+        <PlanScreen
+          contextId={selectedMultiproject?.id ?? null}
+          selectedMultiproject={selectedMultiproject}
+        />
       )}
     </div>
   );

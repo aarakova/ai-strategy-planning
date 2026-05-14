@@ -94,9 +94,10 @@ async def test_post_select_updates_stage_completed(http_client, mock_db):
         f"/contexts/{FAKE_CTX_ID}/alternatives",
         json={"scenario_id": "balanced"},
     )
-    mock_db.planning_contexts.update_one.assert_called_once()
-    call_args = mock_db.planning_contexts.update_one.call_args
-    assert call_args[0][1]["$set"]["planning_stages_status.$[el].status"] == "COMPLETED"
+    assert mock_db.planning_contexts.update_one.call_count >= 1
+    # Check that the Альтернативы stage was marked COMPLETED (first call)
+    first_call = mock_db.planning_contexts.update_one.call_args_list[0]
+    assert first_call[0][1]["$set"]["planning_stages_status.$[el].status"] == "COMPLETED"
 
 
 @pytest.mark.asyncio

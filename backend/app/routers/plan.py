@@ -1,139 +1,107 @@
+import json
+
+from bson import ObjectId
 from fastapi import APIRouter, Depends
 
+from .. import llm
+from ..database import get_db
 from ..dependencies import get_context_for_user
 
 router = APIRouter(prefix="/contexts", tags=["Plan"])
 
-_MOCK_PLAN = {
-    "status": "COMPLETED",
-    "selected_scenario_type": "BALANCED",
-    "plan_passport": {
-        "selected_variant": "Сбалансированный вариант",
-        "planning_horizon_months": 8,
-        "checkpoint_count": 4,
-        "risk_count": 5,
-        "constraints_in_attention_count": 2,
-        "execution_progress": 25,
-    },
-    "stages": [
-        {
-            "stage_number": 1,
-            "name": "Подготовка архитектурной основы",
-            "period": "Май 2026 — Июнь 2026",
-            "start_date": "2026-05-01",
-            "end_date": "2026-06-30",
-            "stage_status": "В работе",
-            "checkpoint": {
-                "name": "Архитектура утверждена",
-                "date": "2026-06-30",
-                "status": "Запланирована",
-            },
-            "composition": [
-                {"project_name": "Модуль авторизации", "share": 60, "roles": "Backend, Frontend"},
-                {"project_name": "Аналитический модуль", "share": 20, "roles": "Аналитики"},
-            ],
-            "resources": [
-                {"role": "Аналитики", "required_hours": 80, "available_hours": 120, "loading_percent": 67, "loading_degree": "Средняя"},
-                {"role": "Разработчики", "required_hours": 300, "available_hours": 320, "loading_percent": 94, "loading_degree": "Высокая"},
-                {"role": "Тестировщики", "required_hours": 60, "available_hours": 80, "loading_percent": 75, "loading_degree": "Средняя"},
-            ],
-        },
-        {
-            "stage_number": 2,
-            "name": "Разработка ключевых модулей",
-            "period": "Июль 2026 — Август 2026",
-            "start_date": "2026-07-01",
-            "end_date": "2026-08-31",
-            "stage_status": "Планируется",
-            "checkpoint": {
-                "name": "MVP платёжной системы",
-                "date": "2026-08-31",
-                "status": "Запланирована",
-            },
-            "composition": [
-                {"project_name": "Платёжная система", "share": 70, "roles": "Backend, QA"},
-                {"project_name": "Модуль авторизации", "share": 30, "roles": "Frontend"},
-            ],
-            "resources": [
-                {"role": "Аналитики", "required_hours": 100, "available_hours": 120, "loading_percent": 83, "loading_degree": "Высокая"},
-                {"role": "Разработчики", "required_hours": 420, "available_hours": 320, "loading_percent": 131, "loading_degree": "Критичная"},
-                {"role": "Тестировщики", "required_hours": 80, "available_hours": 80, "loading_percent": 100, "loading_degree": "Критичная"},
-            ],
-        },
-        {
-            "stage_number": 3,
-            "name": "Интеграция и тестирование",
-            "period": "Сентябрь 2026 — Октябрь 2026",
-            "start_date": "2026-09-01",
-            "end_date": "2026-10-31",
-            "stage_status": "Планируется",
-            "checkpoint": {
-                "name": "Интеграционное тестирование завершено",
-                "date": "2026-10-15",
-                "status": "Запланирована",
-            },
-            "composition": [
-                {"project_name": "Платёжная система", "share": 40, "roles": "QA, DevOps"},
-                {"project_name": "Аналитический модуль", "share": 60, "roles": "Backend, QA"},
-            ],
-            "resources": [
-                {"role": "Аналитики", "required_hours": 80, "available_hours": 120, "loading_percent": 67, "loading_degree": "Средняя"},
-                {"role": "Разработчики", "required_hours": 280, "available_hours": 320, "loading_percent": 88, "loading_degree": "Высокая"},
-                {"role": "Тестировщики", "required_hours": 100, "available_hours": 80, "loading_percent": 125, "loading_degree": "Критичная"},
-            ],
-        },
-        {
-            "stage_number": 4,
-            "name": "Запуск и мониторинг",
-            "period": "Ноябрь 2026 — Декабрь 2026",
-            "start_date": "2026-11-01",
-            "end_date": "2026-12-31",
-            "stage_status": "Планируется",
-            "checkpoint": {
-                "name": "Промышленный запуск",
-                "date": "2026-12-15",
-                "status": "Запланирована",
-            },
-            "composition": [
-                {"project_name": "Модуль авторизации", "share": 100, "roles": "DevOps, Support"},
-                {"project_name": "Платёжная система", "share": 100, "roles": "DevOps, Support"},
-                {"project_name": "Аналитический модуль", "share": 80, "roles": "Backend, QA"},
-            ],
-            "resources": [
-                {"role": "Аналитики", "required_hours": 60, "available_hours": 120, "loading_percent": 50, "loading_degree": "Низкая"},
-                {"role": "Разработчики", "required_hours": 200, "available_hours": 320, "loading_percent": 63, "loading_degree": "Средняя"},
-                {"role": "Тестировщики", "required_hours": 60, "available_hours": 80, "loading_percent": 75, "loading_degree": "Средняя"},
-            ],
-        },
-    ],
-    "resource_loading_by_stages": [
-        {"stage_number": 1, "analysts_percent": 67, "developers_percent": 94, "testers_percent": 75},
-        {"stage_number": 2, "analysts_percent": 83, "developers_percent": 131, "testers_percent": 100},
-        {"stage_number": 3, "analysts_percent": 67, "developers_percent": 88, "testers_percent": 125},
-        {"stage_number": 4, "analysts_percent": 50, "developers_percent": 63, "testers_percent": 75},
-    ],
-    "plan_risks": [
-        {"risk": "Перегрузка разработчиков на этапе 2", "impact": "Высокий"},
-        {"risk": "Критическая нагрузка тестировщиков на этапах 2–3", "impact": "Высокий"},
-        {"risk": "Задержка MVP платёжной системы может сдвинуть этап 3", "impact": "Средний"},
-        {"risk": "Зависимость запуска от готовности модуля авторизации", "impact": "Средний"},
-        {"risk": "Недостаточный буфер времени перед дедлайном", "impact": "Низкий"},
-    ],
-    "constraints_in_attention": [
-        {
-            "constraint": "Лимит разработчиков",
-            "actual_value": "420 ч/мес при лимите 320 на этапе 2",
-            "impact": "Требуется дополнительный наём или перераспределение задач",
-        },
-        {
-            "constraint": "Лимит тестировщиков",
-            "actual_value": "100 ч/мес при лимите 80 на этапе 3",
-            "impact": "Риск снижения качества или переноса релиза",
-        },
-    ],
-}
+_PLAN_SYSTEM_PROMPT = """\
+Ты — эксперт по стратегическому планированию портфеля проектов.
+На основе выбранного сценария сформируй детальный план реализации.
+
+ВАЖНО: верни ТОЛЬКО JSON-объект — никаких пояснений, markdown или лишнего текста.
+
+{"plan":{"plan_passport":{"selected_variant":"<название сценария>","planning_horizon_months":8,"checkpoint_count":4,"risk_count":5,"constraints_in_attention_count":2,"execution_progress":0},"stages":[{"stage_number":1,"name":"<название этапа>","period":"Месяц ГГГГ — Месяц ГГГГ","start_date":"ГГГГ-ММ-ДД","end_date":"ГГГГ-ММ-ДД","stage_status":"Планируется","checkpoint":{"name":"<контрольная точка>","date":"ГГГГ-ММ-ДД","status":"Запланирована"},"composition":[{"project_name":"<точное название>","share":60,"roles":"<роли через запятую>"}],"resources":[{"role":"Аналитики","required_hours":80,"available_hours":120,"loading_percent":67,"loading_degree":"Средняя"},{"role":"Разработчики","required_hours":300,"available_hours":320,"loading_percent":94,"loading_degree":"Высокая"},{"role":"Тестировщики","required_hours":60,"available_hours":80,"loading_percent":75,"loading_degree":"Средняя"}]}],"resource_loading_by_stages":[{"stage_number":1,"analysts_percent":67,"developers_percent":94,"testers_percent":75}],"plan_risks":[{"risk":"<текст риска>","impact":"Высокий|Средний|Низкий"}],"constraints_in_attention":[{"constraint":"<название>","actual_value":"<значение>","impact":"<описание>"}]}}
+
+Правила:
+- Разбей горизонт планирования на 3–4 логических этапа с учётом зависимостей проектов
+- Каждый этап завершается контрольной точкой (checkpoint)
+- project_name в composition: точные названия из входных данных
+- loading_degree: "Низкая" (<60%), "Средняя" (60–80%), "Высокая" (80–95%), "Критичная" (≥95%)
+- available_hours = лимиты ресурсов, разбитые пропорционально длительности этапа относительно общего горизонта
+- НЕ добавляй текст до или после JSON
+"""
+
+
+def _build_plan_message(
+    ctx: dict,
+    scenario: dict,
+    projects: list,
+    dependencies: list,
+    constraints: dict | None,
+) -> str:
+    lines = [
+        f"Портфель: {ctx.get('portfolio_name', '')}, горизонт: {ctx.get('planning_horizon', '')}",
+        f"Выбранный сценарий: {json.dumps({'type': scenario.get('type'), 'name': scenario.get('name'), 'description': scenario.get('description'), 'total_duration_months': scenario.get('total_duration_months'), 'projects': scenario.get('projects', [])}, ensure_ascii=False)}",
+        f"Проекты портфеля: {json.dumps([{'name': p.get('name', ''), 'status': p.get('status', ''), 'start_date': str(p.get('start_date', '')), 'end_date': str(p.get('end_date', '')), 'workload': p.get('workload', {})} for p in projects], ensure_ascii=False)}",
+        f"Зависимости: {json.dumps([{'main': d.get('main_project_name', ''), 'dependent': d.get('dependent_project_name', '')} for d in dependencies], ensure_ascii=False)}",
+    ]
+    if constraints:
+        lines.append(
+            f"Лимиты ресурсов: аналитики={constraints.get('analysts_limit')}, "
+            f"разработчики={constraints.get('developers_limit')}, "
+            f"тестировщики={constraints.get('testers_limit')}, "
+            f"дедлайн={constraints.get('critical_deadline')}"
+        )
+    lines.append("Сформируй детальный план реализации.")
+    return "\n".join(lines)
+
+
+async def _run_plan_generation(context_id: str, scenario_id: str) -> None:
+    db = get_db()
+    await db.strategic_plans.update_one(
+        {"contextId": context_id},
+        {"$set": {"status": "IN_PROGRESS", "contextId": context_id, "plan": None, "error": None}},
+        upsert=True,
+    )
+    try:
+        ctx = await db.planning_contexts.find_one({"_id": ObjectId(context_id)})
+        alt_doc = await db.alternative_scenarios.find_one({"contextId": context_id})
+        scenarios = alt_doc.get("scenarios", []) if alt_doc else []
+        scenario = next(
+            (s for s in scenarios if s.get("type", "").lower() == scenario_id.lower()),
+            scenarios[0] if scenarios else {},
+        )
+
+        projects = await db.projects.find({"contextId": context_id}).to_list(100)
+        dependencies = await db.project_dependencies.find({"contextId": context_id}).to_list(100)
+        constraints = await db.portfolio_constraints.find_one({"contextId": context_id})
+
+        user_msg = _build_plan_message(ctx or {}, scenario, projects, dependencies, constraints)
+        result = await llm.chat_json([
+            {"role": "system", "content": _PLAN_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ])
+        plan = result.get("plan", result)
+        await db.strategic_plans.update_one(
+            {"contextId": context_id},
+            {"$set": {"status": "COMPLETED", "plan": plan, "error": None}},
+        )
+        await db.planning_contexts.update_one(
+            {"_id": ObjectId(context_id)},
+            {"$set": {"planning_stages_status.$[el].status": "COMPLETED"}},
+            array_filters=[{"el.stage_name": "План"}],
+        )
+    except Exception as e:
+        await db.strategic_plans.update_one(
+            {"contextId": context_id},
+            {"$set": {"status": "FAILED", "error": str(e)}},
+        )
 
 
 @router.get("/{contextId}/plan")
 async def get_plan(ctx: dict = Depends(get_context_for_user)):
-    return _MOCK_PLAN
+    db = get_db()
+    context_id = str(ctx["_id"])
+    doc = await db.strategic_plans.find_one({"contextId": context_id})
+    if not doc:
+        return {"status": "NOT_STARTED", "plan": None, "error": None}
+    return {
+        "status": doc["status"],
+        "plan": doc.get("plan"),
+        "error": doc.get("error"),
+    }

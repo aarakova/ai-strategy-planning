@@ -8,6 +8,7 @@ from .. import llm
 from ..database import get_db
 from ..dependencies import get_context_for_user
 from ..models.alternatives import AlternativeSelectRequest
+from .plan import _run_plan_generation
 
 router = APIRouter(prefix="/contexts", tags=["Alternatives"])
 
@@ -109,14 +110,6 @@ async def _run_alternatives_generation(context_id: str) -> None:
             {"$set": {"status": "FAILED", "error": str(e)}},
         )
 
-
-async def _run_plan_generation(context_id: str, scenario_id: str) -> None:
-    db = get_db()
-    await db.strategic_plans.update_one(
-        {"contextId": context_id},
-        {"$set": {"status": "IN_PROGRESS", "contextId": context_id, "selected_scenario_id": scenario_id}},
-        upsert=True,
-    )
 
 
 @router.get("/{contextId}/alternatives")

@@ -103,6 +103,7 @@ async def http_client(mock_db, fake_context, monkeypatch):
     monkeypatch.setattr("app.routers.context.get_db", lambda: mock_db)
     monkeypatch.setattr("app.routers.goals.get_db", lambda: mock_db)
     monkeypatch.setattr("app.routers.alternatives.get_db", lambda: mock_db)
+    monkeypatch.setattr("app.routers.plan.get_db", lambda: mock_db)
     app.dependency_overrides[get_context_for_user] = lambda: fake_context
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
