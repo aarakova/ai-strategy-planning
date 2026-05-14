@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BarChart3,
   Home,
@@ -18,17 +18,25 @@ import { GoalsScreen } from './components/GoalsScreen';
 import { AlternativesScreen } from './components/AlternativesScreen';
 import { PlanScreen } from './components/PlanScreen';
 
-type Multiproject = {
-  id: string;
-  name: string;
-  planningHorizon: string;
-  createdAt: string;
-};
+import { authApi } from './api/auth';
+import type { Multiproject } from './api/contexts';
+
+export type { Multiproject };
+
 export default function App() {
   const [activeScreen, setActiveScreen] = useState('Авторизация');
-  const [selectedMultiproject, setSelectedMultiproject] =
-    useState<Multiproject | null>(null);
-    
+  const [selectedMultiproject, setSelectedMultiproject] = useState<Multiproject | null>(null);
+  const [currentLogin, setCurrentLogin] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    authApi
+      .me()
+      .then((user) => setCurrentLogin(user.login))
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
   const menuItems = [
     { icon: Home, label: 'Главная' },
     { icon: FileText, label: 'Контекст' },
@@ -40,10 +48,22 @@ export default function App() {
 
   const isAuthorizationScreen = activeScreen === 'Авторизация';
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch {}
+    setCurrentLogin(null);
     setSelectedMultiproject(null);
     setActiveScreen('Авторизация');
   };
+
+  if (!authChecked) {
+    return (
+      <div className="size-full flex items-center justify-center bg-neutral-50 text-neutral-400 text-sm">
+        Загрузка...
+      </div>
+    );
+  }
 
   return (
     <div className="size-full flex bg-neutral-50">
@@ -95,6 +115,9 @@ export default function App() {
         <AuthorizationScreen
           setActiveScreen={setActiveScreen}
           setSelectedMultiproject={setSelectedMultiproject}
+          onLoginSuccess={setCurrentLogin}
+          initialStep={currentLogin ? 'multiproject' : 'auth'}
+          initialLogin={currentLogin ?? ''}
         />
       )}
 
@@ -111,8 +134,7 @@ export default function App() {
       {activeScreen === 'Альтернативы' && <AlternativesScreen />}
 
       {activeScreen === 'План' && (
-        <PlanScreen 
-          selectedMultiproject={selectedMultiproject} />
+        <PlanScreen selectedMultiproject={selectedMultiproject} />
       )}
     </div>
   );

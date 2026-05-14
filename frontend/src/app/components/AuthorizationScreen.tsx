@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LogIn,
   UserPlus,
@@ -9,21 +9,15 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 
+import { authApi } from '../api/auth';
+import { contextsApi, type Multiproject } from '../api/contexts';
+import { ApiError } from '../api/client';
+
 type ScreenName = 'Авторизация' | 'Главная';
-
-type User = {
-  login: string;
-  password: string;
-};
-
-type Multiproject = {
-  id: string;
-  name: string;
-  planningHorizon: string;
-  createdAt: string;
-};
 
 type AuthForm = {
   login: string;
@@ -38,33 +32,13 @@ type ProjectForm = {
 type AuthorizationScreenProps = {
   setActiveScreen: (screen: ScreenName) => void;
   setSelectedMultiproject: (multiproject: Multiproject) => void;
+  onLoginSuccess: (login: string) => void;
+  initialStep?: 'auth' | 'multiproject';
+  initialLogin?: string;
 };
-
-const initialUsers: User[] = [
-  {
-    login: 'admin',
-    password: 'admin',
-  },
-];
-
-const initialMultiprojects: Multiproject[] = [
-  {
-    id: '1',
-    name: 'Стратегическое развитие ИС',
-    planningHorizon: '2026-07-31',
-    createdAt: '2026-05-01',
-  },
-  {
-    id: '2',
-    name: 'Автоматизация клиентских сервисов',
-    planningHorizon: '2026-09-30',
-    createdAt: '2026-05-04',
-  },
-];
 
 const formatDate = (date: string) => {
   if (!date) return 'Не указано';
-
   return new Date(date).toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: 'long',
@@ -75,150 +49,129 @@ const formatDate = (date: string) => {
 export function AuthorizationScreen({
   setActiveScreen,
   setSelectedMultiproject,
+  onLoginSuccess,
+  initialStep = 'auth',
+  initialLogin = '',
 }: AuthorizationScreenProps) {
-  const [step, setStep] = useState<'auth' | 'multiproject'>('auth');
+  const [step, setStep] = useState<'auth' | 'multiproject'>(initialStep);
+  const [currentUserLogin, setCurrentUserLogin] = useState(initialLogin);
 
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authForm, setAuthForm] = useState<AuthForm>({ login: '', password: '' });
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
-  const [authForm, setAuthForm] = useState<AuthForm>({
-    login: '',
-    password: '',
-  });
+  const [multiprojects, setMultiprojects] = useState<Multiproject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [selectedMultiprojectId, setSelectedMultiprojectId] = useState<string | null>(null);
 
-  const [authError, setAuthError] = useState<string>('');
+  const [projectForm, setProjectForm] = useState<ProjectForm>({ name: '', planningHorizon: '' });
+  const [projectError, setProjectError] = useState('');
+  const [projectCreating, setProjectCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [multiprojects, setMultiprojects] =
-    useState<Multiproject[]>(initialMultiprojects);
+  const loadMultiprojects = async () => {
+    setProjectsLoading(true);
+    try {
+      const list = await contextsApi.list();
+      setMultiprojects(list);
+    } catch {
+      // ignore — list stays empty
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
 
-  const [selectedMultiprojectId, setSelectedMultiprojectId] =
-    useState<string | null>(null);
-
-  const [projectForm, setProjectForm] = useState<ProjectForm>({
-    name: '',
-    planningHorizon: '',
-  });
-
-  const [projectError, setProjectError] = useState<string>('');
+  useEffect(() => {
+    if (step === 'multiproject') {
+      loadMultiprojects();
+    }
+  }, [step]);
 
   const handleAuthChange = (field: keyof AuthForm, value: string) => {
-    setAuthForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
+    setAuthForm((prev) => ({ ...prev, [field]: value }));
     setAuthError('');
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const login = authForm.login.trim();
     const password = authForm.password.trim();
+    if (!login) { setAuthError('Введите логин.'); return; }
+    if (!password) { setAuthError('Введите пароль.'); return; }
 
-    if (!login) {
-      setAuthError('Введите логин.');
-      return;
+    setAuthLoading(true);
+    try {
+      const user = await authApi.login(login, password);
+      setCurrentUserLogin(user.login);
+      onLoginSuccess(user.login);
+      setStep('multiproject');
+    } catch (e) {
+      setAuthError(e instanceof ApiError ? e.detail : 'Ошибка сервера');
+    } finally {
+      setAuthLoading(false);
     }
-
-    if (!password) {
-      setAuthError('Введите пароль.');
-      return;
-    }
-
-    const existingUser = users.find(
-      (user) => user.login === login && user.password === password,
-    );
-
-    if (!existingUser) {
-      setAuthError('Пользователь с таким логином и паролем не найден.');
-      return;
-    }
-
-    setCurrentUser(existingUser);
-    setStep('multiproject');
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     const login = authForm.login.trim();
     const password = authForm.password.trim();
+    if (!login) { setAuthError('Введите логин.'); return; }
+    if (!password) { setAuthError('Введите пароль.'); return; }
+    if (password.length < 8) { setAuthError('Пароль должен быть не менее 8 символов.'); return; }
 
-    if (!login) {
-      setAuthError('Введите логин.');
-      return;
+    setAuthLoading(true);
+    try {
+      const user = await authApi.register(login, password);
+      setCurrentUserLogin(user.login);
+      onLoginSuccess(user.login);
+      setStep('multiproject');
+    } catch (e) {
+      setAuthError(e instanceof ApiError ? e.detail : 'Ошибка сервера');
+    } finally {
+      setAuthLoading(false);
     }
-
-    if (!password) {
-      setAuthError('Введите пароль.');
-      return;
-    }
-
-    const isLoginBusy = users.some((user) => user.login === login);
-
-    if (isLoginBusy) {
-      setAuthError('Пользователь с таким логином уже существует.');
-      return;
-    }
-
-    const newUser: User = {
-      login,
-      password,
-    };
-
-    setUsers((prev) => [...prev, newUser]);
-    setCurrentUser(newUser);
-    setStep('multiproject');
   };
 
-  const handleProjectFormChange = (
-    field: keyof ProjectForm,
-    value: string,
-  ) => {
-    setProjectForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
+  const handleProjectFormChange = (field: keyof ProjectForm, value: string) => {
+    setProjectForm((prev) => ({ ...prev, [field]: value }));
     setProjectError('');
   };
 
-  const handleSelectMultiproject = (projectId: string) => {
-    const selectedProject = multiprojects.find(
-      (project) => project.id === projectId,
-    );
-
-    if (!selectedProject) {
-      return;
-    }
-
-    setSelectedMultiprojectId(projectId);
-    setSelectedMultiproject(selectedProject);
+  const handleSelectMultiproject = (project: Multiproject) => {
+    setSelectedMultiprojectId(project.id);
+    setSelectedMultiproject(project);
     setActiveScreen('Главная');
   };
 
-  const handleCreateMultiproject = () => {
+  const handleCreateMultiproject = async () => {
     const name = projectForm.name.trim();
-    const planningHorizon = projectForm.planningHorizon;
+    const horizon = projectForm.planningHorizon;
+    if (!name) { setProjectError('Введите название мультипроекта.'); return; }
+    if (!horizon) { setProjectError('Укажите горизонт планирования.'); return; }
 
-    if (!name) {
-      setProjectError('Введите название мультипроекта.');
-      return;
+    setProjectCreating(true);
+    try {
+      const created = await contextsApi.create(name, horizon);
+      setMultiprojects((prev) => [...prev, created]);
+      setProjectForm({ name: '', planningHorizon: '' });
+      handleSelectMultiproject(created);
+    } catch (e) {
+      setProjectError(e instanceof ApiError ? e.detail : 'Ошибка сервера');
+    } finally {
+      setProjectCreating(false);
     }
+  };
 
-    if (!planningHorizon) {
-      setProjectError('Укажите горизонт планирования.');
-      return;
+  const handleDeleteMultiproject = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await contextsApi.delete(id);
+      setMultiprojects((prev) => prev.filter((p) => p.id !== id));
+      if (selectedMultiprojectId === id) setSelectedMultiprojectId(null);
+    } catch {
+      // ignore
+    } finally {
+      setDeletingId(null);
     }
-
-    const newProject: Multiproject = {
-      id: crypto.randomUUID(),
-      name,
-      planningHorizon,
-      createdAt: new Date().toISOString().slice(0, 10),
-    };
-
-    setMultiprojects((prev) => [...prev, newProject]);
-    setSelectedMultiprojectId(newProject.id);
-    setSelectedMultiproject(newProject);
-    setActiveScreen('Главная');
   };
 
   return (
@@ -232,48 +185,41 @@ export function AuthorizationScreen({
 
       <div className="mx-auto flex min-h-[calc(100vh-73px)] max-w-4xl items-center justify-center px-6 py-10">
         <section className="w-full rounded-3xl bg-white p-8 shadow-xl">
+
+          {/* ── AUTH STEP ── */}
           {step === 'auth' && (
             <div>
               <div className="mb-8">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
                   <LogIn className="h-7 w-7 text-blue-600" />
                 </div>
-
                 <h1 className="text-3xl font-semibold">Вход в систему</h1>
-
                 <p className="mt-2 text-sm text-neutral-500">
-                  Введите логин и пароль для авторизации или создайте нового
-                  пользователя.
+                  Введите логин и пароль для авторизации или создайте нового пользователя.
                 </p>
               </div>
 
               <div className="space-y-5">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-neutral-700">
-                    Логин
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-neutral-700">Логин</label>
                   <input
                     type="text"
                     value={authForm.login}
-                    onChange={(event) =>
-                      handleAuthChange('login', event.target.value)
-                    }
+                    onChange={(e) => handleAuthChange('login', e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                     placeholder="Введите логин"
                     className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-neutral-700">
-                    Пароль
-                  </label>
+                  <label className="mb-2 block text-sm font-medium text-neutral-700">Пароль</label>
                   <input
                     type="password"
                     value={authForm.password}
-                    onChange={(event) =>
-                      handleAuthChange('password', event.target.value)
-                    }
-                    placeholder="Введите пароль"
+                    onChange={(e) => handleAuthChange('password', e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                    placeholder="Минимум 8 символов"
                     className="w-full rounded-2xl border border-neutral-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
@@ -289,32 +235,28 @@ export function AuthorizationScreen({
                   <button
                     type="button"
                     onClick={handleLogin}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                    disabled={authLoading}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
                   >
-                    <LogIn className="h-5 w-5" />
+                    {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
                     Войти
                   </button>
 
                   <button
                     type="button"
                     onClick={handleRegister}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white px-5 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50"
+                    disabled={authLoading}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white px-5 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
                   >
-                    <UserPlus className="h-5 w-5" />
+                    {authLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
                     Зарегистрироваться
                   </button>
-                </div>
-
-                <div className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-500">
-                  Для тестового входа можно использовать логин{' '}
-                  <span className="font-semibold text-neutral-700">admin</span>{' '}
-                  и пароль{' '}
-                  <span className="font-semibold text-neutral-700">admin</span>.
                 </div>
               </div>
             </div>
           )}
 
+          {/* ── MULTIPROJECT STEP ── */}
           {step === 'multiproject' && (
             <div>
               <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -322,27 +264,34 @@ export function AuthorizationScreen({
                   <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50">
                     <FolderKanban className="h-7 w-7 text-emerald-600" />
                   </div>
-
-                  <h1 className="text-3xl font-semibold">
-                    Выбор мультипроекта
-                  </h1>
-
-                  <p className="mt-2 text-sm text-neutral-500">
-                    Пользователь: {currentUser?.login}
-                  </p>
+                  <h1 className="text-3xl font-semibold">Выбор мультипроекта</h1>
+                  <p className="mt-2 text-sm text-neutral-500">Пользователь: {currentUserLogin}</p>
                 </div>
 
                 <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
                   Доступно мультипроектов:{' '}
-                  <span className="font-semibold text-neutral-900">
-                    {multiprojects.length}
-                  </span>
+                  <span className="font-semibold text-neutral-900">{multiprojects.length}</span>
                 </div>
               </div>
 
+              {/* List */}
               <div className="mb-8 grid grid-cols-1 gap-4">
-                {multiprojects.map((project) => {
+                {projectsLoading && (
+                  <div className="flex items-center justify-center py-8 text-neutral-400">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm">Загрузка...</span>
+                  </div>
+                )}
+
+                {!projectsLoading && multiprojects.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-neutral-200 p-6 text-center text-sm text-neutral-400">
+                    Мультипроекты не найдены. Создайте первый.
+                  </div>
+                )}
+
+                {!projectsLoading && multiprojects.map((project) => {
                   const isSelected = selectedMultiprojectId === project.id;
+                  const isDeleting = deletingId === project.id;
 
                   return (
                     <div
@@ -356,10 +305,7 @@ export function AuthorizationScreen({
                       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                         <div>
                           <div className="mb-2 flex items-center gap-2">
-                            <h3 className="text-lg font-semibold text-neutral-900">
-                              {project.name}
-                            </h3>
-
+                            <h3 className="text-lg font-semibold text-neutral-900">{project.name}</h3>
                             {isSelected && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                                 <CheckCircle2 className="h-4 w-4" />
@@ -367,46 +313,52 @@ export function AuthorizationScreen({
                               </span>
                             )}
                           </div>
-
                           <div className="grid grid-cols-1 gap-2 text-sm text-neutral-500 sm:grid-cols-2">
                             <div className="flex items-center gap-2">
                               <CalendarRange className="h-4 w-4" />
                               Горизонт: {formatDate(project.planningHorizon)}
                             </div>
-
-                            <div>
-                              Дата создания: {formatDate(project.createdAt)}
-                            </div>
+                            <div>Дата создания: {formatDate(project.createdAt)}</div>
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleSelectMultiproject(project.id)}
-                          className="flex items-center justify-center gap-2 rounded-2xl bg-neutral-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-neutral-800"
-                        >
-                          Выбрать
-                          <ArrowRight className="h-5 w-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMultiproject(project.id)}
+                            disabled={isDeleting}
+                            className="flex items-center justify-center rounded-2xl border border-red-200 bg-white p-3 text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {isDeleting
+                              ? <Loader2 className="h-5 w-5 animate-spin" />
+                              : <Trash2 className="h-5 w-5" />
+                            }
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleSelectMultiproject(project)}
+                            className="flex items-center justify-center gap-2 rounded-2xl bg-neutral-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-neutral-800"
+                          >
+                            Выбрать
+                            <ArrowRight className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
+              {/* Create form */}
               <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-6">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white">
                     <Plus className="h-6 w-6 text-neutral-700" />
                   </div>
-
                   <div>
-                    <h3 className="text-xl font-semibold">
-                      Создание нового мультипроекта
-                    </h3>
-                    <p className="text-sm text-neutral-500">
-                      Укажите базовые данные планирования.
-                    </p>
+                    <h3 className="text-xl font-semibold">Создание нового мультипроекта</h3>
+                    <p className="text-sm text-neutral-500">Укажите базовые данные планирования.</p>
                   </div>
                 </div>
 
@@ -418,9 +370,7 @@ export function AuthorizationScreen({
                     <input
                       type="text"
                       value={projectForm.name}
-                      onChange={(event) =>
-                        handleProjectFormChange('name', event.target.value)
-                      }
+                      onChange={(e) => handleProjectFormChange('name', e.target.value)}
                       placeholder="Например: Развитие корпоративной ИС"
                       className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
@@ -433,12 +383,7 @@ export function AuthorizationScreen({
                     <input
                       type="date"
                       value={projectForm.planningHorizon}
-                      onChange={(event) =>
-                        handleProjectFormChange(
-                          'planningHorizon',
-                          event.target.value,
-                        )
-                      }
+                      onChange={(e) => handleProjectFormChange('planningHorizon', e.target.value)}
                       className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
@@ -454,14 +399,19 @@ export function AuthorizationScreen({
                 <button
                   type="button"
                   onClick={handleCreateMultiproject}
-                  className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
+                  disabled={projectCreating}
+                  className="mt-5 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
                 >
-                  <Plus className="h-5 w-5" />
+                  {projectCreating
+                    ? <Loader2 className="h-5 w-5 animate-spin" />
+                    : <Plus className="h-5 w-5" />
+                  }
                   Создать мультипроект
                 </button>
               </div>
             </div>
           )}
+
         </section>
       </div>
     </main>

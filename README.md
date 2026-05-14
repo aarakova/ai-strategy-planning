@@ -64,7 +64,12 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ### Hot reload
 
-Uvicorn автоматически перезапускается при изменении любого `.py` файла в `backend/`. Пересборка образа не нужна.
+| Сервис | Механизм | Что отслеживается |
+|--------|----------|-------------------|
+| Backend | Uvicorn `--reload` + watchfiles | любой `.py` файл в `backend/` |
+| Frontend | Vite HMR | любой файл в `frontend/src/` |
+
+Пересборка образа не нужна — изменения применяются мгновенно.
 
 ---
 
@@ -109,7 +114,8 @@ docker compose down -v
 │   └── .env.example
 ├── frontend/                 # React приложение
 │   ├── src/
-│   ├── Dockerfile
+│   ├── Dockerfile            # Prod: nginx со статической сборкой
+│   ├── Dockerfile.dev        # Dev: Vite dev server с HMR
 │   └── nginx.conf
 ├── docs/
 │   └── architecture/         # OpenAPI, ER-диаграммы, DDD
