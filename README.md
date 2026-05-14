@@ -8,7 +8,7 @@
 - **Backend:** FastAPI, Python 3.12, Motor (async MongoDB)
 - **База данных:** MongoDB 7.0
 - **Инфраструктура:** Docker, Docker Compose
-- **ИИ:** GigaChat API
+- **ИИ:** OpenRouter API (OpenAI-совместимый агрегатор: Claude, GPT-4o, Llama и др.)
 
 ---
 
@@ -31,9 +31,13 @@ MONGO_URL=mongodb://admin:secret@mongo:27017/ai_strategy?authSource=admin
 MONGO_DB=ai_strategy
 JWT_SECRET=замените-на-случайную-строку
 JWT_EXPIRE_MINUTES=1440
-GIGACHAT_API_KEY=ваш-ключ-gigachat
+OPENROUTER_API_KEY=sk-or-...      # https://openrouter.ai/keys
+OPENROUTER_MODEL=openai/gpt-4o-mini
 CORS_ORIGINS=http://localhost:3000
 ```
+
+Получить ключ: [openrouter.ai/keys](https://openrouter.ai/keys).
+Выбор модели: `openai/gpt-4o-mini` (дешево), `anthropic/claude-3.5-sonnet` (качественнее), `meta-llama/llama-3.3-70b-instruct` (бесплатная квота).
 
 ---
 
@@ -106,7 +110,8 @@ docker compose down -v
 │   │   ├── main.py           # Точка входа, регистрация роутеров
 │   │   ├── config.py         # Настройки из .env
 │   │   ├── database.py       # Подключение к MongoDB (Motor)
-│   │   ├── dependencies.py   # Auth middleware (JWT cookie)
+│   │   │   ├── dependencies.py   # Auth middleware (JWT cookie)
+│   │   ├── llm.py            # Клиент OpenRouter (openai SDK)
 │   │   ├── models/           # Pydantic-схемы запросов и ответов
 │   │   └── routers/          # Обработчики эндпоинтов
 │   ├── Dockerfile

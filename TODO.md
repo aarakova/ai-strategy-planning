@@ -161,16 +161,39 @@ App.tsx
 
 ---
 
-## Фаза 3 — GigaChat интеграция
+## Фаза 3 — OpenRouter интеграция
+
+Используем [OpenRouter](https://openrouter.ai) — OpenAI-совместимый агрегатор моделей (Claude, GPT-4o, Llama и др.).
+Авторизация: один API-ключ в заголовке, никакого OAuth2. Клиент — пакет `openai` с переопределённым `base_url`.
 
 ### 3.1 Подготовка
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.1.1 | Добавить `gigachat` SDK или `httpx`-клиент в `requirements.txt` | ⬜ |
-| 3.1.2 | Добавить `GIGACHAT_API_KEY`, `GIGACHAT_SCOPE` в `config.py` и `.env.example` | ⬜ |
-| 3.1.3 | Создать `backend/app/gigachat.py` — клиент с авторизацией (OAuth2 + token refresh) | ⬜ |
-| 3.1.4 | Добавить retry-логику и timeout (GigaChat может отвечать до 30 с) | ⬜ |
+| 3.1.1 | Добавить `openai>=1.0` в `requirements.txt` | ⬜ |
+| 3.1.2 | Добавить `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` в `config.py` и `.env.example` | ⬜ |
+| 3.1.3 | Создать `backend/app/llm.py` — тонкая обёртка над `AsyncOpenAI` с `base_url=openrouter` | ⬜ |
+| 3.1.4 | Добавить retry-логику и timeout (~60 с для сложных промптов) | ⬜ |
+
+```python
+# backend/app/llm.py
+from openai import AsyncOpenAI
+from .config import settings
+
+client = AsyncOpenAI(
+    api_key=settings.openrouter_api_key,
+    base_url="https://openrouter.ai/api/v1",
+)
+
+async def chat(messages: list[dict], model: str | None = None) -> str:
+    resp = await client.chat.completions.create(
+        model=model or settings.openrouter_model,
+        messages=messages,
+        response_format={"type": "json_object"},
+        timeout=60,
+    )
+    return resp.choices[0].message.content
+```
 
 ### 3.2 Анализ портфеля (`context.py` → `_run_analysis`)
 
@@ -178,9 +201,9 @@ App.tsx
 |---|--------|--------|
 | 3.2.1 | Загрузить из MongoDB: ориентации, проекты, зависимости, ограничения | ⬜ |
 | 3.2.2 | Сформировать системный промпт + пользовательский контекст | ⬜ |
-| 3.2.3 | Отправить запрос в GigaChat, распарсить JSON-ответ | ⬜ |
+| 3.2.3 | Вызвать `llm.chat(messages)`, распарсить JSON-ответ | ⬜ |
 | 3.2.4 | Сохранить результат в `analysis_results` со статусом COMPLETED | ⬜ |
-| 3.2.5 | При ошибке GigaChat — сохранить статус FAILED + error message | ⬜ |
+| 3.2.5 | При ошибке LLM — сохранить статус FAILED + error message | ⬜ |
 | 3.2.6 | Обновить `planning_stages_status.Анализ = COMPLETED` в контексте | ⬜ |
 
 Ожидаемая структура ответа GigaChat для анализа:
@@ -200,16 +223,16 @@ App.tsx
 | # | Задача | Статус |
 |---|--------|--------|
 | 3.3.1 | При вызове GET suggestions — проверить, есть ли актуальные в `ai_goal_suggestions` | ⬜ |
-| 3.3.2 | Если нет — сгенерировать через GigaChat на основе анализа и ориентаций | ⬜ |
+| 3.3.2 | Если нет — сгенерировать через `llm.chat()` на основе анализа и ориентаций | ⬜ |
 | 3.3.3 | Сохранить предложения в `ai_goal_suggestions` (кешировать) | ⬜ |
 
 ### 3.4 Альтернативные сценарии (`alternatives.py` → GET)
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 3.4.1 | При вызове GET — если `alternative_scenarios` пустые, запросить GigaChat | ⬜ |
-| 3.4.2 | Передать GigaChat: цели, анализ, ресурсные ограничения | ⬜ |
-| 3.4.3 | GigaChat возвращает 3 сценария (BALANCED, CONSERVATIVE, RISKY) | ⬜ |
+| 3.4.1 | При вызове GET — если `alternative_scenarios` пустые, запросить LLM | ⬜ |
+| 3.4.2 | Передать в промпт: цели, анализ, ресурсные ограничения | ⬜ |
+| 3.4.3 | LLM возвращает 3 сценария (BALANCED, CONSERVATIVE, RISKY) | ⬜ |
 | 3.4.4 | Сохранить сценарии в `alternative_scenarios` | ⬜ |
 
 ### 3.5 Генерация плана (`alternatives.py` → `_run_plan_generation`)
@@ -218,7 +241,7 @@ App.tsx
 |---|--------|--------|
 | 3.5.1 | Загрузить выбранный сценарий, цели, контекст из MongoDB | ⬜ |
 | 3.5.2 | Сформировать промпт для генерации плана | ⬜ |
-| 3.5.3 | GigaChat возвращает план с этапами, ресурсами, рисками | ⬜ |
+| 3.5.3 | LLM возвращает план с этапами, ресурсами, рисками | ⬜ |
 | 3.5.4 | Сохранить в `strategic_plans` со статусом COMPLETED | ⬜ |
 | 3.5.5 | При ошибке — статус FAILED + error message | ⬜ |
 | 3.5.6 | Обновить `planning_stages_status.План = COMPLETED` | ⬜ |
