@@ -125,9 +125,13 @@ export default function App() {
         <GlavnayaScreen selectedMultiproject={selectedMultiproject} />
       )}
 
-      {activeScreen === 'Контекст' && <KontekstScreen />}
+      {activeScreen === 'Контекст' && (
+        <KontekstScreen contextId={selectedMultiproject?.id ?? null} />
+      )}
 
-      {activeScreen === 'Анализ' && <AnalizScreen />}
+      {activeScreen === 'Анализ' && (
+        <AnalizScreen contextId={selectedMultiproject?.id ?? null} />
+      )}
 
       {activeScreen === 'Цели' && <GoalsScreen />}
 

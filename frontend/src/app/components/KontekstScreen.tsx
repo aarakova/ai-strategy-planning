@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Upload, Target, Plus, Trash2 } from 'lucide-react';
+import { contextApi } from '../api/context';
+import type { ContextPayload } from '../api/context';
 
 type Priority = 'Высокий' | 'Средний' | 'Низкий' | '';
 
@@ -84,7 +86,7 @@ const generateId = () => {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 };
 
-export function KontekstScreen() {
+export function KontekstScreen({ contextId }: { contextId: string | null }) {
   const [guidelineForm, setGuidelineForm] =
     useState<GuidelineForm>(emptyGuidelineForm);
 
@@ -108,6 +110,58 @@ export function KontekstScreen() {
       testersLimit: '',
       criticalDeadline: '',
     });
+
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const buildPayload = (): ContextPayload => {
+    const nameById = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+    return {
+      orientations: guidelines.map((g) => ({
+        vision: g.vision,
+        priority: g.priority as 'Высокий' | 'Средний' | 'Низкий',
+      })),
+      projects: projects.map((p) => ({
+        name: p.name,
+        status: p.status as 'Завершено' | 'В работе' | 'Не начато',
+        start_date: p.startDate,
+        end_date: p.endDate,
+        workload: {
+          analysts: parseInt(p.analysts, 10) || 0,
+          developers: parseInt(p.developers, 10) || 0,
+          testers: parseInt(p.testers, 10) || 0,
+        },
+        constraints: p.constraints || undefined,
+        deviations: p.deviations || undefined,
+        description: p.description || undefined,
+      })),
+      dependencies: dependencyRelations.map((d) => ({
+        main_project_name: nameById[d.baseProjectId] ?? '',
+        dependent_project_name: nameById[d.dependentProjectId] ?? '',
+      })),
+      portfolio_constraints: {
+        analysts_limit: parseInt(portfolioConstraints.analystsLimit, 10) || 0,
+        developers_limit: parseInt(portfolioConstraints.developersLimit, 10) || 0,
+        testers_limit: parseInt(portfolioConstraints.testersLimit, 10) || 0,
+        critical_deadline: portfolioConstraints.criticalDeadline,
+      },
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!contextId) return;
+    setSubmitLoading(true);
+    setSubmitError(null);
+    try {
+      await contextApi.submit(contextId, buildPayload());
+      setSubmitSuccess(true);
+    } catch (e: unknown) {
+      setSubmitError(e instanceof Error ? e.message : 'Ошибка при отправке');
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
 
   const totalRoleLoad = useMemo(() => {
     return projects.reduce(
@@ -813,9 +867,31 @@ export function KontekstScreen() {
             </div>
           </section>
 
-          <button className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
+          {!contextId && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-sm text-center">
+              Выберите мультипроект, чтобы сформировать контекст
+            </div>
+          )}
+
+          {submitError && (
+            <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm text-center">
+              {submitError}
+            </div>
+          )}
+
+          {submitSuccess && (
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm text-center">
+              Контекст принят — анализ запущен. Перейдите на страницу «Анализ».
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={submitLoading || submitSuccess || !contextId}
+            className="w-full bg-neutral-900 text-white py-4 rounded-xl hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <Target className="w-5 h-5" />
-            <span>Сформировать контекст</span>
+            <span>{submitLoading ? 'Отправка…' : 'Сформировать контекст'}</span>
           </button>
         </div>
       </div>

@@ -3,3 +3,4 @@ frontend/dist
 frontend/.vite
 frontend/node_modules/.vite
 .env
+__pycache__

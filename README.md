@@ -101,6 +101,61 @@ docker compose down -v
 
 ---
 
+## Тесты
+
+Тесты находятся в `backend/tests/`. Запускаются локально (не требуют Docker).
+
+### Подготовка (один раз)
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+> **Windows:** если в выводе тестов кириллица отображается кракозябрами — запустите:
+> ```powershell
+> $env:PYTHONIOENCODING="utf-8"
+> ```
+
+### Юнит-тесты
+
+Быстрые, без внешних зависимостей. БД и LLM замоканы.
+
+```bash
+cd backend
+python -m pytest tests/ -v -m "not integration"
+```
+
+### Интеграционные тесты (реальный LLM)
+
+Требуют рабочий `OPENROUTER_API_KEY` и `OPENROUTER_MODEL` в `backend/.env`.  
+Делают реальные HTTP-запросы к OpenRouter — занимают 1–3 минуты.
+
+```bash
+cd backend
+python -m pytest tests/test_integration_llm.py -v
+```
+
+После прогона в `backend/tests/llm_test_log.md` появится лог с тем, что LLM получила на вход и что вернула.
+
+### Все тесты сразу
+
+```bash
+cd backend
+python -m pytest tests/ -v
+```
+
+### Шпаргалка
+
+| Команда | Что запускает |
+|---------|--------------|
+| `pytest tests/ -v -m "not integration"` | только юнит-тесты (быстро) |
+| `pytest tests/test_integration_llm.py -v` | только интеграционные (LLM) |
+| `pytest tests/ -v` | всё |
+| `pytest tests/ -v -k "analysis"` | только тесты со словом «analysis» в имени |
+
+---
+
 ## Структура проекта
 
 ```
@@ -114,7 +169,15 @@ docker compose down -v
 │   │   ├── llm.py            # Клиент OpenRouter (openai SDK)
 │   │   ├── models/           # Pydantic-схемы запросов и ответов
 │   │   └── routers/          # Обработчики эндпоинтов
+│   ├── tests/
+│   │   ├── conftest.py           # Общие фикстуры (mock_db, fake_context, http_client)
+│   │   ├── test_analysis_endpoint.py  # GET /analysis
+│   │   ├── test_context_submit.py     # POST /context
+│   │   ├── test_run_analysis.py       # фоновая задача _run_analysis
+│   │   ├── test_integration_llm.py    # реальные вызовы LLM (помечены integration)
+│   │   └── llm_test_log.md       # лог входа/выхода LLM (создаётся при запуске)
 │   ├── Dockerfile
+│   ├── pytest.ini
 │   ├── requirements.txt
 │   └── .env.example
 ├── frontend/                 # React приложение
